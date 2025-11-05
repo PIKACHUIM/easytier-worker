@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "easytier-work",
+  "compatibility_date": "2025-08-03",
+  "main": "./src/index.tsx",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "easytier-data",
+      "database_id": "***************************"
+    }
+  ],
+  "vars": {
+    "JWT_SECRET": "********************************"
+  }
+}

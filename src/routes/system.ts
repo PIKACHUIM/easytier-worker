@@ -1,0 +1,497 @@
+import { Hono } from 'hono';
+import type { Env, InitializeRequest, SystemSettingsUpdateRequest, UserManageRequest, User, SystemSetting } from '../types';
+import { hashPassword, verifyJWT } from '../utils';
+
+const system = new Hono<{ Bindings: Env }>();
+
+// 检查系统是否已初始化（检查system_settings表是否存在）
+system.get('/check-init', async (c) => {
+  try {
+    // 尝试查询system_settings表，如果表不存在则说明未初始化
+    const result = await c.env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'"
+    ).first();
+    
+    const isInitialized = result !== null;
+    
+    return c.json({ initialized: isInitialized });
+  } catch (error) {
+    console.error('检查初始化状态错误:', error);
+    // 如果出错，假定未初始化
+    return c.json({ initialized: false });
+  }
+});
+
+// 导入数据库结构并初始化系统（使用JWT密钥验证）
+system.post('/import-schema', async (c) => {
+  try {
+    // 检查system_settings表是否已存在
+    const tableExists = await c.env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'"
+    ).first();
+    
+    if (tableExists) {
+      return c.json({ error: '系统已经初始化，无法重新导入数据库' }, 400);
+    }
+    
+    const { jwt_secret }: { jwt_secret: string } = await c.req.json();
+    
+    // 验证JWT密钥
+    if (jwt_secret !== c.env.JWT_SECRET) {
+      return c.json({ error: 'JWT密钥验证失败' }, 401);
+    }
+
+    // 手动构建SQL语句数组，避免分割多行INSERT
+    const statements = [
+      // 创建用户表
+      `CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        is_admin INTEGER DEFAULT 0,
+        is_super_admin INTEGER DEFAULT 0,
+        is_verified INTEGER DEFAULT 0,
+        verification_token TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      // 创建节点表
+      `CREATE TABLE IF NOT EXISTS nodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_email TEXT NOT NULL,
+        node_name TEXT NOT NULL,
+        region_type TEXT NOT NULL,
+        region_detail TEXT NOT NULL,
+        connections TEXT NOT NULL,
+        current_bandwidth REAL DEFAULT 0,
+        tier_bandwidth REAL NOT NULL,
+        max_bandwidth REAL NOT NULL,
+        used_traffic REAL DEFAULT 0,
+        correction_traffic REAL DEFAULT 0,
+        max_traffic REAL NOT NULL,
+        reset_cycle INTEGER NOT NULL,
+        reset_date DATETIME NOT NULL,
+        connection_count INTEGER DEFAULT 0,
+        max_connections INTEGER NOT NULL,
+        tags TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        valid_until DATETIME NOT NULL,
+        status TEXT DEFAULT 'offline',
+        recent_status TEXT DEFAULT '',
+        notes TEXT,
+        allow_relay INTEGER DEFAULT 0,
+        last_report_at DATETIME,
+        report_token TEXT,
+        FOREIGN KEY (user_email) REFERENCES users(email)
+      )`,
+      // 创建系统设置表
+      `CREATE TABLE IF NOT EXISTS system_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        setting_key TEXT UNIQUE NOT NULL,
+        setting_value TEXT NOT NULL,
+        description TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      // 创建索引
+      `CREATE INDEX IF NOT EXISTS idx_nodes_user_email ON nodes(user_email)`,
+      `CREATE INDEX IF NOT EXISTS idx_nodes_region_type ON nodes(region_type)`,
+      `CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay)`,
+      `CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key)`,
+      // 插入默认系统设置（作为一个完整的语句）
+      `INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) VALUES
+        ('resend_api_key', '', 'Resend API 密钥'),
+        ('resend_from_email', 'noreply@example.com', 'Resend 发件人邮箱'),
+        ('resend_from_domain', 'example.com', 'Resend 发件域名'),
+        ('system_initialized', '0', '系统是否已初始化'),
+        ('site_name', 'EasyTier 节点管理系统', '网站名称'),
+        ('site_url', 'https://example.com', '网站URL')`
+    ];
+    
+    // 使用batch方法批量执行，确保事务性
+    const batch = statements.map(statement => c.env.DB.prepare(statement));
+    await c.env.DB.batch(batch);
+    
+    return c.json({ 
+      message: '数据库结构导入成功',
+      tables_created: ['users', 'nodes', 'system_settings']
+    }, 201);
+  } catch (error) {
+    console.error('导入数据库错误:', error);
+    return c.json({ error: '导入数据库失败: ' + (error as Error).message }, 500);
+  }
+});
+
+// 初始化系统（导入数据库并创建管理员账户）
+system.post('/initialize', async (c) => {
+  try {
+    // 检查system_settings表是否已存在
+    const tableExists = await c.env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'"
+    ).first();
+    
+    if (tableExists) {
+      return c.json({ error: '系统已经初始化' }, 400);
+    }
+    
+    const { jwt_secret, email, password }: InitializeRequest = await c.req.json();
+    
+    // 验证JWT密钥
+    if (jwt_secret !== c.env.JWT_SECRET) {
+      return c.json({ error: 'JWT密钥验证失败' }, 401);
+    }
+    
+    // 验证输入
+    if (!email || !password) {
+      return c.json({ error: '邮箱和密码不能为空' }, 400);
+    }
+    
+    if (password.length < 6) {
+      return c.json({ error: '密码长度至少为 6 位' }, 400);
+    }
+    
+    // 第一步：导入数据库结构
+    const schemaSQL = `
+-- 用户表
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  is_admin INTEGER DEFAULT 0,
+  is_super_admin INTEGER DEFAULT 0,
+  is_verified INTEGER DEFAULT 0,
+  verification_token TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 节点表
+CREATE TABLE IF NOT EXISTS nodes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_email TEXT NOT NULL,
+  node_name TEXT NOT NULL,
+  region_type TEXT NOT NULL,
+  region_detail TEXT NOT NULL,
+  connections TEXT NOT NULL,
+  current_bandwidth REAL DEFAULT 0,
+  tier_bandwidth REAL NOT NULL,
+  max_bandwidth REAL NOT NULL,
+  used_traffic REAL DEFAULT 0,
+  correction_traffic REAL DEFAULT 0,
+  max_traffic REAL NOT NULL,
+  reset_cycle INTEGER NOT NULL,
+  reset_date DATETIME NOT NULL,
+  connection_count INTEGER DEFAULT 0,
+  max_connections INTEGER NOT NULL,
+  tags TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  valid_until DATETIME NOT NULL,
+  status TEXT DEFAULT 'offline',
+  recent_status TEXT DEFAULT '',
+  notes TEXT,
+  allow_relay INTEGER DEFAULT 0,
+  last_report_at DATETIME,
+  report_token TEXT,
+  FOREIGN KEY (user_email) REFERENCES users(email)
+);
+
+-- 系统设置表
+CREATE TABLE IF NOT EXISTS system_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  setting_key TEXT UNIQUE NOT NULL,
+  setting_value TEXT NOT NULL,
+  description TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建索引以提高查询性能
+CREATE INDEX IF NOT EXISTS idx_nodes_user_email ON nodes(user_email);
+CREATE INDEX IF NOT EXISTS idx_nodes_region_type ON nodes(region_type);
+CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status);
+CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay);
+CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key);
+
+-- 插入默认系统设置
+INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) VALUES
+  ('resend_api_key', '', 'Resend API 密钥'),
+  ('resend_from_email', 'noreply@example.com', 'Resend 发件人邮箱'),
+  ('resend_from_domain', 'example.com', 'Resend 发件域名'),
+  ('system_initialized', '1', '系统是否已初始化'),
+  ('site_name', 'EasyTier 节点管理系统', '网站名称'),
+  ('site_url', 'https://example.com', '网站URL');
+`;
+    
+    // 手动构建SQL语句数组，避免分割多行INSERT
+    const statements = [
+      // 创建用户表
+      `CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        is_admin INTEGER DEFAULT 0,
+        is_super_admin INTEGER DEFAULT 0,
+        is_verified INTEGER DEFAULT 0,
+        verification_token TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      // 创建节点表
+      `CREATE TABLE IF NOT EXISTS nodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_email TEXT NOT NULL,
+        node_name TEXT NOT NULL,
+        region_type TEXT NOT NULL,
+        region_detail TEXT NOT NULL,
+        connections TEXT NOT NULL,
+        current_bandwidth REAL DEFAULT 0,
+        tier_bandwidth REAL NOT NULL,
+        max_bandwidth REAL NOT NULL,
+        used_traffic REAL DEFAULT 0,
+        correction_traffic REAL DEFAULT 0,
+        max_traffic REAL NOT NULL,
+        reset_cycle INTEGER NOT NULL,
+        reset_date DATETIME NOT NULL,
+        connection_count INTEGER DEFAULT 0,
+        max_connections INTEGER NOT NULL,
+        tags TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        valid_until DATETIME NOT NULL,
+        status TEXT DEFAULT 'offline',
+        recent_status TEXT DEFAULT '',
+        notes TEXT,
+        allow_relay INTEGER DEFAULT 0,
+        last_report_at DATETIME,
+        report_token TEXT,
+        FOREIGN KEY (user_email) REFERENCES users(email)
+      )`,
+      // 创建系统设置表
+      `CREATE TABLE IF NOT EXISTS system_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        setting_key TEXT UNIQUE NOT NULL,
+        setting_value TEXT NOT NULL,
+        description TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      // 创建索引
+      `CREATE INDEX IF NOT EXISTS idx_nodes_user_email ON nodes(user_email)`,
+      `CREATE INDEX IF NOT EXISTS idx_nodes_region_type ON nodes(region_type)`,
+      `CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay)`,
+      `CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key)`,
+      // 插入默认系统设置（作为一个完整的语句）
+      `INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) VALUES
+        ('resend_api_key', '', 'Resend API 密钥'),
+        ('resend_from_email', 'noreply@example.com', 'Resend 发件人邮箱'),
+        ('resend_from_domain', 'example.com', 'Resend 发件域名'),
+        ('system_initialized', '1', '系统是否已初始化'),
+        ('site_name', 'EasyTier 节点管理系统', '网站名称'),
+        ('site_url', 'https://example.com', '网站URL')`
+    ];
+    
+    // 使用batch方法批量执行，确保事务性
+    const batch = statements.map(statement => c.env.DB.prepare(statement));
+    await c.env.DB.batch(batch);
+    
+    // 第二步：创建超级管理员账户
+    const passwordHash = await hashPassword(password);
+    
+    await c.env.DB.prepare(
+      'INSERT INTO users (email, password_hash, is_admin, is_super_admin, is_verified) VALUES (?, ?, 1, 1, 1)'
+    ).bind(email, passwordHash).run();
+    
+    return c.json({ 
+      message: '系统初始化成功',
+      admin_email: email
+    }, 201);
+  } catch (error) {
+    console.error('初始化错误:', error);
+    return c.json({ error: '初始化失败' }, 500);
+  }
+});
+
+// 获取系统设置（需要管理员权限）
+system.get('/settings', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    if (!payload || !payload.is_admin) {
+      return c.json({ error: '需要管理员权限' }, 403);
+    }
+    
+    // 获取所有系统设置（排除敏感信息）
+    const settings = await c.env.DB.prepare(
+      'SELECT setting_key, setting_value, description FROM system_settings WHERE setting_key != ?'
+    ).bind('system_initialized').all();
+    
+    // 转换为对象格式
+    const settingsObj: Record<string, string> = {};
+    settings.results.forEach((setting: any) => {
+      settingsObj[setting.setting_key] = setting.setting_value;
+    });
+    
+    return c.json(settingsObj);
+  } catch (error) {
+    console.error('获取系统设置错误:', error);
+    return c.json({ error: '获取系统设置失败' }, 500);
+  }
+});
+
+// 更新系统设置（需要管理员权限）
+system.put('/settings', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    if (!payload || !payload.is_admin) {
+      return c.json({ error: '需要管理员权限' }, 403);
+    }
+    
+    const updates: SystemSettingsUpdateRequest = await c.req.json();
+    
+    // 更新每个设置
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        await c.env.DB.prepare(
+          'UPDATE system_settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?'
+        ).bind(value, key).run();
+      }
+    }
+    
+    return c.json({ message: '系统设置更新成功' });
+  } catch (error) {
+    console.error('更新系统设置错误:', error);
+    return c.json({ error: '更新系统设置失败' }, 500);
+  }
+});
+
+// 获取所有用户（需要管理员权限）
+system.get('/users', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    if (!payload || !payload.is_admin) {
+      return c.json({ error: '需要管理员权限' }, 403);
+    }
+    
+    // 获取所有用户（不包含密码）
+    const users = await c.env.DB.prepare(
+      'SELECT id, email, is_admin, is_super_admin, is_verified, created_at FROM users ORDER BY created_at DESC'
+    ).all();
+    
+    return c.json(users.results);
+  } catch (error) {
+    console.error('获取用户列表错误:', error);
+    return c.json({ error: '获取用户列表失败' }, 500);
+  }
+});
+
+// 设置用户管理员权限（需要超级管理员权限）
+system.put('/users/:email/admin', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    // 只有超级管理员可以设置其他用户为管理员
+    if (!payload || !payload.is_super_admin) {
+      return c.json({ error: '需要超级管理员权限' }, 403);
+    }
+    
+    const email = c.req.param('email');
+    const { is_admin }: UserManageRequest = await c.req.json();
+    
+    // 检查用户是否存在
+    const user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE email = ?'
+    ).bind(email).first<User>();
+    
+    if (!user) {
+      return c.json({ error: '用户不存在' }, 404);
+    }
+    
+    // 不能修改超级管理员的权限
+    if (user.is_super_admin) {
+      return c.json({ error: '不能修改超级管理员的权限' }, 403);
+    }
+    
+    // 更新用户管理员权限
+    await c.env.DB.prepare(
+      'UPDATE users SET is_admin = ? WHERE email = ?'
+    ).bind(is_admin ? 1 : 0, email).run();
+    
+    return c.json({ 
+      message: `已${is_admin ? '授予' : '撤销'}用户 ${email} 的管理员权限` 
+    });
+  } catch (error) {
+    console.error('设置用户权限错误:', error);
+    return c.json({ error: '设置用户权限失败' }, 500);
+  }
+});
+
+// 删除用户（需要超级管理员权限）
+system.delete('/users/:email', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    if (!payload || !payload.is_super_admin) {
+      return c.json({ error: '需要超级管理员权限' }, 403);
+    }
+    
+    const email = c.req.param('email');
+    
+    // 检查用户是否存在
+    const user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE email = ?'
+    ).bind(email).first<User>();
+    
+    if (!user) {
+      return c.json({ error: '用户不存在' }, 404);
+    }
+    
+    // 不能删除超级管理员
+    if (user.is_super_admin) {
+      return c.json({ error: '不能删除超级管理员' }, 403);
+    }
+    
+    // 删除用户的所有节点
+    await c.env.DB.prepare(
+      'DELETE FROM nodes WHERE user_email = ?'
+    ).bind(email).run();
+    
+    // 删除用户
+    await c.env.DB.prepare(
+      'DELETE FROM users WHERE email = ?'
+    ).bind(email).run();
+    
+    return c.json({ message: `用户 ${email} 已删除` });
+  } catch (error) {
+    console.error('删除用户错误:', error);
+    return c.json({ error: '删除用户失败' }, 500);
+  }
+});
+
+export default system;
