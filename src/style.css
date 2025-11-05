@@ -445,6 +445,96 @@ button[type="submit"]:hover,
   color: #2e7d32;
 }
 
+/* 节点卡片按钮组 */
+.node-card button {
+  padding: 6px 12px;
+  font-size: 13px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.node-card .btn-small {
+  background: #667eea;
+  color: white;
+}
+
+.node-card .btn-small:hover {
+  background: #764ba2;
+}
+
+/* 连接项样式 */
+.connection-item {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.connection-item input,
+.connection-item select {
+  padding: 8px;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.connection-item input:focus,
+.connection-item select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* 节点详情模态框样式 */
+#node-detail-content {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+#node-detail-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+#node-detail-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+#node-detail-content::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 4px;
+}
+
+#node-detail-content::-webkit-scrollbar-thumb:hover {
+  background: #764ba2;
+}
+
+/* 表单网格布局增强 */
+.form-group input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+
+/* 错误提示样式 */
+.error {
+  color: #dc3545;
+  padding: 15px;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 5px;
+  text-align: center;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .header {
@@ -485,5 +575,23 @@ button[type="submit"]:hover,
     display: block;
     margin: 5px 0;
     width: 100%;
+  }
+  
+  .modal-content {
+    margin: 20px;
+    padding: 20px;
+    max-width: calc(100% - 40px) !important;
+  }
+  
+  .connection-item {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  #node-detail-content {
+    max-height: 60vh;
   }
 }

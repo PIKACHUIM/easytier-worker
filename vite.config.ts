@@ -5,13 +5,13 @@ import ssrPlugin from 'vite-ssr-components/plugin'
 export default defineConfig({
   plugins: [
     cloudflare({
-      configPath: './wrangler.jsonc'
+      configPath: './wrangler.jsonc',
+      persistState: true
     }), 
     ssrPlugin()
   ],
   build: {
     outDir: 'dist',
-    assetsDir: 'assets',
     ssr: true,
     minify: true,
     rollupOptions: {
@@ -28,6 +28,5 @@ export default defineConfig({
   },
   resolve: {
     conditions: ['worker', 'webworker']
-  },
-  publicDir: false
+  }
 })

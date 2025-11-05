@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "easytier-work",
   "compatibility_date": "2025-08-03",
-  "main": "./src/index.tsx",
+  "main": "./dist/index.js",
   "d1_databases": [
     {
       "binding": "DB",
@@ -11,6 +11,10 @@
     }
   ],
   "vars": {
-    "JWT_SECRET": "********************************"
+    "JWT_SECRET": "********************************",
+    "ENABLE_EMAIL_VERIFICATION": "false"
+  },
+  "observability": {
+    "enabled": false
   }
 }

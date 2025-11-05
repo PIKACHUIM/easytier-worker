@@ -189,9 +189,19 @@ api.post('/query', async (c) => {
 // 获取公开节点列表（用于前端展示）
 api.get('/public', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare(
-      'SELECT * FROM nodes WHERE status = ? AND valid_until > ? ORDER BY created_at DESC'
-    ).bind('online', new Date().toISOString()).all<NodeDB>();
+    const showOffline = c.req.query('show_offline') === 'true';
+    
+    let query = 'SELECT * FROM nodes WHERE valid_until > ?';
+    const params: any[] = [new Date().toISOString()];
+    
+    if (!showOffline) {
+      query += ' AND status = ?';
+      params.push('online');
+    }
+    
+    query += ' ORDER BY status DESC, created_at DESC';
+    
+    const { results } = await c.env.DB.prepare(query).bind(...params).all<NodeDB>();
     
     const publicNodes = results.map(node => ({
       id: node.id,
@@ -212,7 +222,25 @@ api.get('/public', async (c) => {
       reset_date: node.reset_date
     }));
     
-    return c.json({ nodes: publicNodes });
+    // 计算在线节点的平均负载和总连接数
+    const onlineNodes = results.filter(n => n.status === 'online');
+    const totalConnections = onlineNodes.reduce((sum, n) => sum + n.connection_count, 0);
+    const avgBandwidth = onlineNodes.length > 0 
+      ? onlineNodes.reduce((sum, n) => sum + n.current_bandwidth, 0) / onlineNodes.length 
+      : 0;
+    const avgTraffic = onlineNodes.length > 0
+      ? onlineNodes.reduce((sum, n) => sum + n.used_traffic, 0) / onlineNodes.length
+      : 0;
+    
+    return c.json({ 
+      nodes: publicNodes,
+      stats: {
+        total_connections: totalConnections,
+        avg_bandwidth: avgBandwidth,
+        avg_traffic: avgTraffic,
+        avg_connections: onlineNodes.length > 0 ? totalConnections / onlineNodes.length : 0
+      }
+    });
   } catch (error) {
     console.error('获取公开节点错误:', error);
     return c.json({ error: '获取节点失败' }, 500);

@@ -1,0 +1,169 @@
+# EasyTier 节点管理系统 - 开发指南
+
+## 运行项目
+
+### 开发模式（推荐）
+
+开发时请使用以下命令：
+
+```bash
+npm run dev
+```
+
+这会启动 Vite 开发服务器，默认运行在 `http://localhost:5173`
+
+**特点：**
+- ✅ 支持热更新（HMR）
+- ✅ 自动加载源文件
+- ✅ 实时调试
+- ✅ 快速开发体验
+
+### 生产模式测试
+
+如果需要测试生产环境，请先构建：
+
+```bash
+npm run build
+wrangler dev
+```
+
+这会：
+1. 使用 Vite 构建项目
+2. 启动 Cloudflare Workers 本地开发服务器（默认 `http://127.0.0.1:8787`）
+
+### 部署到 Cloudflare
+
+```bash
+npm run deploy
+```
+
+这会自动构建并部署到 Cloudflare Workers。
+
+## 常见问题
+
+### Q: 为什么访问 `http://127.0.0.1:8787` 出现 404 错误？
+
+**A:** 你可能直接运行了 `wrangler dev` 而没有先构建。请使用以下方式之一：
+
+1. **开发模式**（推荐）：
+   ```bash
+   npm run dev
+   ```
+   然后访问 `http://localhost:5173`
+
+2. **生产模式测试**：
+   ```bash
+   npm run build
+   wrangler dev
+   ```
+   然后访问 `http://127.0.0.1:8787`
+
+### Q: 开发模式和生产模式有什么区别？
+
+**A:** 
+- **开发模式** (`npm run dev`)：
+  - 使用 Vite 开发服务器
+  - 直接加载源文件（TypeScript、CSS等）
+  - 支持热更新
+  - 适合日常开发
+
+- **生产模式** (`npm run build && wrangler dev`)：
+  - 使用 Cloudflare Workers 运行时
+  - 加载构建后的文件
+  - 模拟真实生产环境
+  - 适合部署前测试
+
+### Q: 初始化时出现 "no such table" 错误怎么办？
+
+**A:** 如果初始化时出现 `D1_ERROR: no such table: main.nodes: SQLITE_ERROR` 错误，可能是数据库状态异常。解决方法：
+
+1. **清空本地数据库**：
+   ```bash
+   wrangler d1 execute easytier-data --local --command="DROP TABLE IF EXISTS users; DROP TABLE IF EXISTS nodes; DROP TABLE IF EXISTS system_settings;"
+   ```
+
+2. **重新启动开发服务器**：
+   ```bash
+   npm run dev
+   ```
+
+3. **重新访问初始化页面**并完成初始化
+
+**注意**：系统已优化 SQL 执行逻辑，使用 D1 的 batch API 确保事务性和执行顺序，正常情况下不会出现此问题。
+
+## 初始化系统
+
+首次运行项目时，系统会自动跳转到初始化页面 `/initialize`。
+
+### 初始化步骤：
+
+1. 访问任何页面（系统会自动跳转到初始化页面）
+2. 填写以下信息：
+   - **JWT 密钥**：从 `wrangler.jsonc` 或 `wrangler.test.jsonc` 中获取 `JWT_SECRET` 的值
+   - **管理员邮箱**：设置超级管理员的邮箱
+   - **管理员密码**：设置超级管理员的密码
+3. 点击"初始化系统"按钮
+4. 系统会自动：
+   - 创建数据库表结构
+   - 创建超级管理员账户
+   - 完成系统配置
+5. 自动跳转到登录页面
+
+### JWT 密钥获取
+
+在 `wrangler.test.jsonc` 中找到：
+
+```jsonc
+"vars": {
+  "JWT_SECRET": "8Tv#19QV#UQwxW2POXkha9i7JHh9rzmM"
+}
+```
+
+将这个值复制到初始化页面的 JWT 密钥输入框中。
+
+## 项目结构
+
+```
+easytierwork/
+├── src/
+│   ├── client/          # 前端客户端脚本
+│   │   ├── home.ts      # 首页脚本
+│   │   ├── login.ts     # 登录页脚本
+│   │   ├── register.ts  # 注册页脚本
+│   │   └── ...
+│   ├── routes/          # 后端 API 路由
+│   │   ├── auth.ts      # 认证相关 API
+│   │   ├── nodes.ts     # 节点管理 API
+│   │   ├── system.ts    # 系统管理 API
+│   │   └── ...
+│   ├── index.tsx        # 主入口文件
+│   ├── renderer.tsx     # 页面渲染器
+│   └── style.css        # 全局样式
+├── schema.sql           # 数据库表结构
+├── wrangler.jsonc       # Cloudflare Workers 配置（生产）
+├── wrangler.test.jsonc  # Cloudflare Workers 配置（测试）
+└── package.json         # 项目依赖配置
+```
+
+## 开发建议
+
+1. **日常开发**：使用 `npm run dev`，享受热更新带来的快速开发体验
+2. **部署前测试**：使用 `npm run build && wrangler dev`，确保生产环境正常
+3. **代码修改后**：Vite 会自动重新加载，无需手动刷新
+4. **数据库修改**：修改 `schema.sql` 后需要重新初始化系统
+
+## 技术栈
+
+- **前端框架**：Hono + JSX
+- **构建工具**：Vite
+- **运行时**：Cloudflare Workers
+- **数据库**：Cloudflare D1 (SQLite)
+- **认证**：JWT
+- **邮件服务**：Resend
+
+## 相关文档
+
+- [API 文档](./API.md)
+- [数据库结构](../schema.sql)
+- [Cloudflare Workers 文档](https://developers.cloudflare.com/workers/)
+- [Hono 文档](https://hono.dev/)

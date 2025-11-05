@@ -113,6 +113,7 @@ export interface Env {
   JWT_SECRET: string;
   ADMIN_EMAIL: string;
   RESEND_API_KEY: string;
+  ENABLE_EMAIL_VERIFICATION?: string; // 是否启用邮件验证，默认false
 }
 
 // JWT Payload 类型
