@@ -150,3 +150,22 @@ export function calculateBandwidthPerUser(tierBandwidth: number, connectionCount
   const users = Math.max(1, connectionCount);
   return tierBandwidth / users;
 }
+
+// HTML转义函数
+export function escapeHtml(text: string): string {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// 日期格式化函数
+export function formatDate(dateStr?: string): string {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleString('zh-CN');
+}
+
+export function formatDateShort(dateStr?: string): string {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleDateString('zh-CN');
+}

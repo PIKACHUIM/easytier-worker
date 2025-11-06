@@ -31,9 +31,29 @@ body {
   margin-bottom: 30px;
 }
 
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .header h1 {
   font-size: 24px;
   color: #667eea;
+  margin: 0;
+}
+
+.user-info {
+  font-size: 14px;
+  color: #666;
+  background: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.user-info span {
+  font-weight: 500;
 }
 
 .header nav a {
