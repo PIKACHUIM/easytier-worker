@@ -103,6 +103,51 @@ body {
   font-weight: bold;
 }
 
+/* 环形图卡片 */
+.donut-card {
+  background: white;
+  border: 2px solid #e9ecef;
+  color: #333;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.donut-container {
+  position: relative;
+}
+
+.donut {
+  /* 移除整体旋转，避免文本竖排问题 */
+}
+
+.donut-bg {
+  fill: none;
+  stroke: #e9ecef;
+  stroke-width: 10;
+}
+
+.donut-segment {
+  fill: none;
+  stroke: #667eea;
+  stroke-width: 10;
+  stroke-dasharray: 0 314;
+  stroke-dashoffset: 0;
+  transition: stroke-dasharray 0.5s ease;
+}
+
+.donut-text {
+  font-size: 14px;
+  font-weight: bold;
+  fill: #333;
+}
+
+.donut-label {
+  font-size: 12px;
+  fill: #666;
+}
+
 /* 节点列表 */
 .nodes-list h2 {
   margin-bottom: 20px;
@@ -418,6 +463,34 @@ button[type="submit"]:hover,
   font-size: 14px;
 }
 
+/* 首页/公共节点链接样式 */
+#home-link {
+  background-color: rgba(102, 126, 234, 0.15);
+  border: 1px solid rgba(102, 126, 234, 0.4);
+  color: #4a61d8;
+  font-weight: 600;
+}
+
+#home-link:hover {
+  background-color: rgba(102, 126, 234, 0.25);
+  border-color: rgba(102, 126, 234, 0.6);
+  color: #3f55c9;
+}
+
+/* 我的节点链接样式 */
+#dashboard-link {
+  background-color: rgba(118, 75, 162, 0.15);
+  border: 1px solid rgba(118, 75, 162, 0.4);
+  color: #6e3f9b;
+  font-weight: 600;
+}
+
+#dashboard-link:hover {
+  background-color: rgba(118, 75, 162, 0.25);
+  border-color: rgba(118, 75, 162, 0.6);
+  color: #5f3788;
+}
+
 /* 管理员链接特殊样式 */
 #admin-link {
   background-color: rgba(255, 193, 7, 0.15);
@@ -443,6 +516,33 @@ button[type="submit"]:hover,
   background-color: rgba(76, 175, 80, 0.25);
   border-color: rgba(76, 175, 80, 0.6);
   color: #2e7d32;
+}
+
+/* 登录/退出链接样式 */
+#login-link {
+  background-color: rgba(0, 123, 255, 0.15);
+  border: 1px solid rgba(0, 123, 255, 0.4);
+  color: #0b5ed7;
+  font-weight: 600;
+}
+
+#login-link:hover {
+  background-color: rgba(0, 123, 255, 0.25);
+  border-color: rgba(0, 123, 255, 0.6);
+  color: #0a58ca;
+}
+
+#logout-link {
+  background-color: rgba(220, 53, 69, 0.15);
+  border: 1px solid rgba(220, 53, 69, 0.4);
+  color: #c82333;
+  font-weight: 600;
+}
+
+#logout-link:hover {
+  background-color: rgba(220, 53, 69, 0.25);
+  border-color: rgba(220, 53, 69, 0.6);
+  color: #bd2130;
 }
 
 /* 节点卡片按钮组 */

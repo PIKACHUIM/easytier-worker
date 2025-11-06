@@ -1,4 +1,5 @@
 import { jsxRenderer } from 'hono/jsx-renderer'
+import chartUmd from '../public/chart.umd.min.js?raw'
 
 export const renderer = jsxRenderer(({ children }) => {
   return (
@@ -445,6 +446,18 @@ export const renderer = jsxRenderer(({ children }) => {
             background: #c82333;
           }
 
+          .chart-text {
+            text-align: center;
+            margin-top: 8px;
+          }
+
+          /* 限制统计图容器最大宽度 */
+          .donut-container {
+            max-width: 300px;
+            width: 100%;
+            margin: 0 auto;
+          }
+
           /* 导航菜单增强样式 */
           .header nav {
             display: flex;
@@ -458,6 +471,31 @@ export const renderer = jsxRenderer(({ children }) => {
             border-radius: 6px;
             transition: all 0.3s;
             font-size: 14px;
+          }
+
+          /* 导航链接颜色样式 */
+          #home-link {
+            background-color: rgba(102, 126, 234, 0.15);
+            border: 1px solid rgba(102, 126, 234, 0.4);
+            color: #3f51b5;
+            font-weight: 600;
+          }
+          #home-link:hover {
+            background-color: rgba(102, 126, 234, 0.25);
+            border-color: rgba(102, 126, 234, 0.6);
+            color: #283593;
+          }
+
+          #dashboard-link {
+            background-color: rgba(0, 150, 136, 0.15);
+            border: 1px solid rgba(0, 150, 136, 0.4);
+            color: #00796b;
+            font-weight: 600;
+          }
+          #dashboard-link:hover {
+            background-color: rgba(0, 150, 136, 0.25);
+            border-color: rgba(0, 150, 136, 0.6);
+            color: #00695c;
           }
 
           /* 管理员链接特殊样式 */
@@ -485,6 +523,30 @@ export const renderer = jsxRenderer(({ children }) => {
             background-color: rgba(76, 175, 80, 0.25);
             border-color: rgba(76, 175, 80, 0.6);
             color: #2e7d32;
+          }
+
+          #login-link {
+            background-color: rgba(33, 150, 243, 0.15);
+            border: 1px solid rgba(33, 150, 243, 0.4);
+            color: #1976d2;
+            font-weight: 600;
+          }
+          #login-link:hover {
+            background-color: rgba(33, 150, 243, 0.25);
+            border-color: rgba(33, 150, 243, 0.6);
+            color: #1565c0;
+          }
+
+          #logout-link {
+            background-color: rgba(220, 53, 69, 0.15);
+            border: 1px solid rgba(220, 53, 69, 0.4);
+            color: #c62828;
+            font-weight: 600;
+          }
+          #logout-link:hover {
+            background-color: rgba(220, 53, 69, 0.25);
+            border-color: rgba(220, 53, 69, 0.6);
+            color: #b71c1c;
           }
 
           /* 响应式设计 */
@@ -530,8 +592,86 @@ export const renderer = jsxRenderer(({ children }) => {
             }
           }
         `}} />
+        <script dangerouslySetInnerHTML={{__html: `
+          // 全局工具：转义和统一节点行渲染
+          window.escapeHtml = function(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+          };
+
+          window.renderNodeRows = function(mode, nodes) {
+            return nodes.map(function(node) {
+              var baseCols = '' +
+                '<td>' + window.escapeHtml(node.node_name) + '</td>' +
+                '<td><span class="node-status ' + node.status + '">' + (node.status === 'online' ? '在线' : '离线') + '</span></td>' +
+                '<td>' + (node.region_type === 'domestic' ? '大陆' : '海外') + ' - ' + window.escapeHtml(node.region_detail || '-') + '</td>' +
+                '<td>' + (Number(node.current_bandwidth || 0).toFixed(2)) + ' Mbps</td>' +
+                '<td>' + (Number(node.max_bandwidth || 0).toFixed(2)) + ' Mbps</td>' +
+                '<td>' + (node.connection_count || 0) + ' / ' + (node.max_connections || 0) + '</td>' +
+                '<td>' + (Number(node.used_traffic || 0).toFixed(2)) + ' GB</td>' +
+                '<td>' + (node.max_traffic === 0 ? '无限制' : Number(node.max_traffic || 0).toFixed(2) + ' GB') + '</td>' +
+                '<td>' + (node.allow_relay ? '是' : '否') + '</td>' +
+                '<td>' + window.escapeHtml(node.tags || '-') + '</td>';
+
+              var actionCol = '';
+              if (mode === 'my') {
+                actionCol = '<td>' +
+                  '<button class="btn-small" onclick="viewNodeDetail(' + node.id + ')">详情</button>' +
+                  '<button class="btn-small" onclick="editNode(' + node.id + ')">编辑</button>' +
+                  '<button class="btn-small btn-danger" onclick="deleteNode(' + node.id + ')">删除</button>' +
+                '</td>';
+              }
+              return '<tr>' + baseCols + (actionCol || '') + '</tr>';
+            }).join('');
+          };
+        `}} />
       </head>
-      <body>{children}</body>
+      <body>{children}
+        <script dangerouslySetInnerHTML={{__html: chartUmd}} />
+        <script dangerouslySetInnerHTML={{__html: `
+          (function() {
+            function updateNav() {
+              try {
+                var token = localStorage.getItem('token');
+                var userStr = localStorage.getItem('user');
+                var user = null;
+                if (userStr) { try { user = JSON.parse(userStr); } catch (e) { user = null; } }
+
+                var loginLink = document.getElementById('login-link');
+                var logoutLink = document.getElementById('logout-link');
+                var dashboardLink = document.getElementById('dashboard-link');
+                var adminLink = document.getElementById('admin-link');
+                var settingsLink = document.getElementById('settings-link');
+
+                if (loginLink) loginLink.style.display = token ? 'none' : 'inline';
+                if (logoutLink) logoutLink.style.display = token ? 'inline' : 'none';
+                if (dashboardLink) dashboardLink.style.display = token ? 'inline' : 'none';
+
+                var isAdmin = !!(user && (user.is_admin || user.is_super_admin));
+                if (adminLink) adminLink.style.display = (token && isAdmin) ? 'inline' : 'none';
+                if (settingsLink) settingsLink.style.display = (token && isAdmin) ? 'inline' : 'none';
+
+                if (logoutLink && !logoutLink._bound) {
+                  logoutLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    location.href = '/';
+                  });
+                  // 标记避免重复绑定
+                  logoutLink._bound = true;
+                }
+              } catch (err) {
+                console.error('导航初始化失败:', err);
+              }
+            }
+
+            document.addEventListener('DOMContentLoaded', updateNav);
+          })();
+        `}} />
+      </body>
     </html>
   )
 })

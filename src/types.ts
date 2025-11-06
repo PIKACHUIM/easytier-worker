@@ -74,9 +74,8 @@ export interface LoginRequest {
 export interface NodeCreateRequest {
   node_name: string;
   region_type: 'domestic' | 'overseas';
-  region_detail: string;
+  region_detail?: string;
   connections: Connection[];
-  tier_bandwidth: number;
   max_bandwidth: number;
   max_traffic: number;
   reset_cycle: number;
@@ -99,6 +98,7 @@ export interface NodeReportRequest {
   reported_traffic: number; // 本次上报的流量增量
   connection_count: number;
   status: 'online' | 'offline';
+  tier_bandwidth?: number; // 可选：由节点上报阶梯带宽
 }
 
 export interface NodeQueryRequest {

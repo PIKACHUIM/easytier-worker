@@ -82,15 +82,29 @@ nodes.post('/', authMiddleware, async (c) => {
     const user = c.get('user') as JWTPayload;
     const data: NodeCreateRequest = await c.req.json();
     
-    // 验证必填字段
-    if (!data.node_name || !data.region_type || !data.region_detail || 
+    // 验证必填字段（具体地区可选）
+    if (!data.node_name || !data.region_type ||
         !data.connections || data.connections.length === 0) {
       return c.json({ error: '缺少必填字段' }, 400);
     }
     
-    // 计算重置日期
-    const resetDate = new Date();
-    resetDate.setDate(resetDate.getDate() + data.reset_cycle);
+    // 计算首次重置日期（每月重置日 0-31）
+    const now = new Date();
+    const computeNextMonthlyReset = (from: Date, day: number): string => {
+      const y = from.getUTCFullYear();
+      const m = from.getUTCMonth();
+      // 如果本月还未到重置日，则设为本月，否则设为下月
+      const lastDayThisMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+      const targetDayThisMonth = day === 0 ? lastDayThisMonth : Math.min(day, lastDayThisMonth);
+      const candidate = new Date(Date.UTC(y, m, targetDayThisMonth, 0, 0, 0));
+      const nextMonth = new Date(Date.UTC(y, m + 1, 1));
+      const lastDayNextMonth = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 0)).getUTCDate();
+      const targetDayNextMonth = day === 0 ? lastDayNextMonth : Math.min(day, lastDayNextMonth);
+      const nextCandidate = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), targetDayNextMonth, 0, 0, 0));
+      const firstReset = now <= candidate ? candidate : nextCandidate;
+      return firstReset.toISOString();
+    };
+    const initialResetDate = computeNextMonthlyReset(now, data.reset_cycle ?? 0);
     
     // 生成随机token（32位）
     const reportToken = Array.from(crypto.getRandomValues(new Uint8Array(16)))
@@ -110,12 +124,12 @@ nodes.post('/', authMiddleware, async (c) => {
       data.region_type,
       data.region_detail,
       JSON.stringify(data.connections),
-      data.tier_bandwidth,
-      data.max_bandwidth,
-      data.max_traffic,
-      data.reset_cycle,
-      resetDate.toISOString(),
-      data.max_connections,
+      0, // 阶梯带宽由API上报，创建时置0
+      (data.max_bandwidth ?? 1),
+      (data.max_traffic ?? 0),
+      (data.reset_cycle ?? 0),
+      initialResetDate,
+      (data.max_connections ?? 100),
       data.tags || '',
       data.valid_until,
       data.notes || '',
@@ -189,11 +203,23 @@ nodes.put('/:id', authMiddleware, async (c) => {
     if (data.reset_cycle !== undefined) {
       updates.push('reset_cycle = ?');
       values.push(data.reset_cycle);
-      // 重新计算重置日期
-      const resetDate = new Date();
-      resetDate.setDate(resetDate.getDate() + data.reset_cycle);
+      // 重新计算按月的重置日期
+      const now = new Date();
+      const computeNextMonthlyReset = (from: Date, day: number): string => {
+        const y = from.getUTCFullYear();
+        const m = from.getUTCMonth();
+        const lastDayThisMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+        const targetDayThisMonth = day === 0 ? lastDayThisMonth : Math.min(day, lastDayThisMonth);
+        const candidate = new Date(Date.UTC(y, m, targetDayThisMonth, 0, 0, 0));
+        const nextMonth = new Date(Date.UTC(y, m + 1, 1));
+        const lastDayNextMonth = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 0)).getUTCDate();
+        const targetDayNextMonth = day === 0 ? lastDayNextMonth : Math.min(day, lastDayNextMonth);
+        const nextCandidate = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), targetDayNextMonth, 0, 0, 0));
+        const firstReset = from <= candidate ? candidate : nextCandidate;
+        return firstReset.toISOString();
+      };
       updates.push('reset_date = ?');
-      values.push(resetDate.toISOString());
+      values.push(computeNextMonthlyReset(now, data.reset_cycle));
     }
     if (data.max_connections !== undefined) {
       updates.push('max_connections = ?');

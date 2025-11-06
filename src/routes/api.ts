@@ -42,17 +42,28 @@ api.post('/report', async (c) => {
       return c.json({ error: '节点已过期' }, 403);
     }
     
-    // 检查是否需要重置流量
+    // 检查是否需要重置流量（按每月重置日期 0-31）
     const resetDate = new Date(node.reset_date);
     let newUsedTraffic = node.used_traffic + data.reported_traffic;
     let newResetDate = node.reset_date;
-    
+
+    const computeNextMonthlyReset = (from: Date, day: number): string => {
+      const y = from.getUTCFullYear();
+      const m = from.getUTCMonth();
+      // move to next month
+      const nextMonth = new Date(Date.UTC(y, m + 1, 1));
+      // last day of next month
+      const lastDayNextMonth = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 0)).getUTCDate();
+      const targetDay = day === 0 ? lastDayNextMonth : Math.min(day, lastDayNextMonth);
+      const result = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), targetDay, 0, 0, 0));
+      return result.toISOString();
+    };
+
     if (now >= resetDate) {
-      // 重置流量
+      // 重置流量并计算下次重置日期（按月）
       newUsedTraffic = data.reported_traffic;
-      const nextResetDate = new Date(now);
-      nextResetDate.setDate(nextResetDate.getDate() + node.reset_cycle);
-      newResetDate = nextResetDate.toISOString();
+      const nextReset = computeNextMonthlyReset(now, node.reset_cycle);
+      newResetDate = nextReset;
     }
     
     // 计算负荷（0-9）
@@ -71,7 +82,9 @@ api.post('/report', async (c) => {
     const newRecentStatus = updateRecentStatus(node.recent_status, load);
     
     // 更新节点信息
-    await c.env.DB.prepare(`
+    // 可选更新阶梯带宽（由API上报）
+    const updateTierBandwidth = data.tier_bandwidth !== undefined;
+    const updateSql = `
       UPDATE nodes SET
         current_bandwidth = ?,
         used_traffic = ?,
@@ -79,9 +92,10 @@ api.post('/report', async (c) => {
         connection_count = ?,
         status = ?,
         recent_status = ?,
-        last_report_at = ?
+        last_report_at = ?${updateTierBandwidth ? ',\n        tier_bandwidth = ?' : ''}
       WHERE id = ?
-    `).bind(
+    `;
+    const bindings = [
       data.current_bandwidth,
       newUsedTraffic,
       newResetDate,
@@ -89,8 +103,11 @@ api.post('/report', async (c) => {
       data.status,
       newRecentStatus,
       now.toISOString(),
-      node.id
-    ).run();
+    ];
+    if (updateTierBandwidth) bindings.push(data.tier_bandwidth);
+    bindings.push(node.id);
+
+    await c.env.DB.prepare(updateSql).bind(...bindings).run();
     
     return c.json({ 
       message: '上报成功',
@@ -270,17 +287,25 @@ api.get('/stats', async (c) => {
       'SELECT COUNT(*) as count FROM nodes WHERE region_type = ?'
     ).bind('overseas').first<{ count: number }>();
     
-    // 总带宽
-    const totalBandwidth = await c.env.DB.prepare(
-      'SELECT SUM(tier_bandwidth) as total FROM nodes WHERE status = ?'
-    ).bind('online').first<{ total: number }>();
+    // 在线节点带宽汇总（当前/阶梯/最大）与连接汇总
+    const bandwidthSums = await c.env.DB.prepare(
+      'SELECT SUM(current_bandwidth) as current_total, SUM(tier_bandwidth) as tier_total, SUM(max_bandwidth) as max_total FROM nodes'
+    ).first<{ current_total: number, tier_total: number, max_total: number }>();
+
+    const connectionsSums = await c.env.DB.prepare(
+      'SELECT SUM(connection_count) as connection_total, SUM(max_connections) as max_total FROM nodes'
+    ).first<{ connection_total: number, max_total: number }>();
     
     return c.json({
       total_nodes: totalNodes?.count || 0,
       online_nodes: onlineNodes?.count || 0,
       domestic_nodes: domesticNodes?.count || 0,
       overseas_nodes: overseasNodes?.count || 0,
-      total_bandwidth: totalBandwidth?.total || 0
+      current_bandwidth_total: bandwidthSums?.current_total || 0,
+      tier_bandwidth_total: bandwidthSums?.tier_total || 0,
+      max_bandwidth_total: bandwidthSums?.max_total || 0,
+      connection_count_total: connectionsSums?.connection_total || 0,
+      max_connections_total: connectionsSums?.max_total || 0
     });
   } catch (error) {
     console.error('获取统计信息错误:', error);
