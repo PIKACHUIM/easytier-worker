@@ -111,7 +111,7 @@ nodes.post('/', authMiddleware, async (c) => {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
     
-    // 插入节点
+// 插入节点
     const result = await c.env.DB.prepare(`
       INSERT INTO nodes (
         user_email, node_name, region_type, region_detail, connections,
@@ -122,7 +122,7 @@ nodes.post('/', authMiddleware, async (c) => {
       user.email,
       data.node_name,
       data.region_type,
-      data.region_detail,
+      data.region_detail || '',
       JSON.stringify(data.connections),
       0, // 阶梯带宽由API上报，创建时置0
       (data.max_bandwidth ?? 1),

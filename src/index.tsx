@@ -6,13 +6,15 @@ import auth from './routes/auth'
 import nodes from './routes/nodes'
 import api from './routes/api'
 import system from './routes/system'
-import HomePage from './components/HomePage'
-import LoginPage from './components/LoginPage'
-import RegisterPage from './components/RegisterPage'
-import DashboardPage from './components/DashboardPage'
-import AdminPage from './components/AdminPage'
-import InitializePage from './components/InitializePage'
-import SettingsPage from './components/SettingsPage'
+import HomeIndex from './components/HomeIndex'
+import UserLogin from './components/UserLogin'
+import UserSetup from './components/UserSetup'
+import UserNodes from './components/UserNodes'
+import UserEmail from './components/UserEmail'
+import EmailVerificationRequired from './components/EmailVerificationRequired'
+import HostNodes from './components/HostNodes'
+import HostSetup from './components/HostSetup'
+import HostAdmin from './components/HostAdmin'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -29,31 +31,39 @@ app.route('/api', api)
 app.use(renderer)
 
 app.get('/', (c) => {
-  return c.render(<HomePage />)
+  return c.render(<HomeIndex />)
 })
 
 app.get('/login', (c) => {
-  return c.render(<LoginPage />)
+  return c.render(<UserLogin />)
 })
 
 app.get('/register', (c) => {
-  return c.render(<RegisterPage />)
+  return c.render(<UserSetup />)
 })
 
 app.get('/dashboard', (c) => {
-  return c.render(<DashboardPage />)
+  return c.render(<UserNodes />)
 })
 
 app.get('/admin', (c) => {
-  return c.render(<AdminPage />)
+  return c.render(<HostNodes />)
 })
 
 app.get('/initialize', (c) => {
-  return c.render(<InitializePage />)
+  return c.render(<HostSetup />)
 })
 
 app.get('/settings', (c) => {
-  return c.render(<SettingsPage />)
+  return c.render(<HostAdmin />)
+})
+
+app.get('/verify', (c) => {
+  return c.render(<UserEmail />)
+})
+
+app.get('/verify-required', (c) => {
+  return c.render(<EmailVerificationRequired />)
 })
 
 export default app

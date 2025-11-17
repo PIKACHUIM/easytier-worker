@@ -109,64 +109,9 @@ function upsertDonut(chartKey, canvasId, value, total) {
   }
 }
 
-// 加载公共节点列表
+// 加载公共节点列表 - 使用统一的节点加载函数
 async function loadPublicNodes() {
-  try {
-    const showOffline = document.getElementById('show-offline-toggle')?.checked || false;
-    const response = await fetch(`/api/public?show_offline=${showOffline}`);
-    const data = await response.json();
-    
-    const container = document.getElementById('nodes-container');
-    const statsDiv = document.getElementById('public-stats');
-    
-    if (response.ok) {
-      // 缓存节点数据供详情查看使用
-      window.publicNodesCache = data.nodes;
-      
-      // 统一渲染节点行（主页标准，无操作列）
-      function renderNodeRows(nodes) {
-        return nodes.map(node => `
-          <tr>
-            <td>${escapeHtml(node.node_name)}</td>
-            <td><span class="node-status ${node.status}">${node.status === 'online' ? '在线' : '离线'}</span></td>
-            <td>${node.region_type === 'domestic' ? '大陆' : '海外'} - ${escapeHtml(node.region_detail || '-')}</td>
-            <td>${(node.current_bandwidth || 0).toFixed(2)} Mbps</td>
-            <td>${(node.max_bandwidth || 0).toFixed(2)} Mbps</td>
-            <td>${node.connection_count} / ${node.max_connections}</td>
-            <td>${(node.used_traffic || 0).toFixed(2)} GB</td>
-            <td>${node.max_traffic === 0 ? '无限制' : node.max_traffic.toFixed(2) + ' GB'}</td>
-            <td>${node.allow_relay ? '是' : '否'}</td>
-            <td>${escapeHtml(node.tags || '-')}</td>
-            <td>${escapeHtml(node.notes || '-')}</td>
-            <td><button class="btn-small" onclick="viewPublicNodeDetail(${node.id})">详情</button></td>
-          </tr>
-        `).join('');
-      }
-      
-      // 显示在线节点统计（若存在容器）
-      if (statsDiv && data.stats) {
-        statsDiv.innerHTML = `
-          <strong>在线节点统计：</strong>
-          总连接数: ${data.stats.total_connections} | 
-          平均连接数: ${data.stats.avg_connections.toFixed(2)} | 
-          平均带宽: ${data.stats.avg_bandwidth.toFixed(2)} Mbps | 
-          平均流量: ${data.stats.avg_traffic.toFixed(2)} GB
-        `;
-      }
-      
-      if (data.nodes.length === 0) {
-        container.innerHTML = '<tr><td colspan="11" style="text-align: center;">暂无节点</td></tr>';
-        return;
-      }
-      
-      container.innerHTML = renderNodeRows(data.nodes);
-    } else {
-      container.innerHTML = '<tr><td colspan="11" style="text-align: center;">加载失败，请稍后重试</td></tr>';
-    }
-  } catch (error) {
-    console.error('加载节点列表失败:', error);
-    document.getElementById('nodes-container').innerHTML = '<tr><td colspan="11" style="text-align: center;">加载失败，请稍后重试</td></tr>';
-  }
+  return loadNodes('/api/public', 'public', 'publicNodesCache', 11);
 }
 
 // 查看公共节点详情
@@ -178,6 +123,16 @@ window.viewPublicNodeDetail = (nodeId) => {
       alert('未找到节点');
       return;
     }
+    
+    // 生成连接信息HTML
+    const connsHtml = node.connections && node.connections.length > 0 
+      ? node.connections.map((conn, idx) => (
+          '    <div class="node-info" style="background: white; padding: 8px; margin: 5px 0; border-radius: 4px;">' +
+          '      <strong>连接 ' + (idx + 1) + ':</strong> ' + conn.type + ' - ' + conn.ip + ':' + conn.port +
+          '    </div>'
+        )).join('')
+      : '    <div class="node-info">暂无连接信息</div>';
+    
     const content = [
       '<div style="display: grid; gap: 15px;">',
       '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
@@ -187,6 +142,11 @@ window.viewPublicNodeDetail = (nodeId) => {
       '    <div class="node-info"><strong>当前状态:</strong> <span class="node-status ' + node.status + '">' + (node.status === 'online' ? '在线' : '离线') + '</span></div>',
       '    <div class="node-info"><strong>允许中转:</strong> ' + (node.allow_relay ? '是' : '否') + '</div>',
       node.tags ? ('    <div class="node-info"><strong>标签:</strong> ' + escapeHtml(node.tags) + '</div>') : '',
+      node.notes ? ('    <div class="node-info"><strong>备注:</strong> ' + escapeHtml(node.notes) + '</div>') : '',
+      '  </div>',
+      '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
+      '    <h3 style="margin-bottom: 10px; color: #667eea;">连接方式</h3>',
+      connsHtml,
       '  </div>',
       '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
       '    <h3 style="margin-bottom: 10px; color: #667eea;">带宽与流量</h3>',
@@ -207,9 +167,10 @@ window.viewPublicNodeDetail = (nodeId) => {
       '  </div>',
       '</div>'
     ].join('');
-    document.getElementById('public-detail-node-name').textContent = node.node_name;
-    document.getElementById('public-node-detail-content').innerHTML = content;
-    document.getElementById('public-node-detail-modal').style.display = 'block';
+    
+    document.getElementById('home-detail-node-name').textContent = node.node_name;
+    document.getElementById('home-node-detail-content').innerHTML = content;
+    document.getElementById('home-node-detail-modal').style.display = 'block';
   } catch (error) {
     console.error('显示节点详情失败:', error);
     alert('显示节点详情失败');
@@ -233,14 +194,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 模态框关闭事件
-  document.getElementById('public-detail-close')?.addEventListener('click', () => {
-    document.getElementById('public-node-detail-modal').style.display = 'none';
+document.getElementById('home-detail-close')?.addEventListener('click', () => {
+    document.getElementById('home-node-detail-modal').style.display = 'none';
   });
   
   window.addEventListener('click', (e) => {
     const target = e.target;
-    if (target && target.id === 'public-node-detail-modal') {
-      document.getElementById('public-node-detail-modal').style.display = 'none';
+    if (target && target.id === 'home-node-detail-modal') {
+      document.getElementById('home-node-detail-modal').style.display = 'none';
     }
   });
 

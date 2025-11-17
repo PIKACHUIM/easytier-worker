@@ -26,10 +26,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   
-  const settingsForm = document.getElementById('settings-form') as HTMLFormElement;
+const settingsForm = document.getElementById('settings-form') as HTMLFormElement;
   const usersContainer = document.getElementById('users-container') as HTMLDivElement;
   const messageDiv = document.getElementById('message') as HTMLDivElement;
   const logoutBtn = document.getElementById('logout');
+  const sendTestEmailBtn = document.getElementById('send-test-email') as HTMLButtonElement;
+  const testEmailInput = document.getElementById('test-email') as HTMLInputElement;
   
   // 退出登录
   logoutBtn?.addEventListener('click', (e) => {
@@ -37,6 +39,97 @@ document.addEventListener('DOMContentLoaded', async () => {
     localStorage.removeItem('token');
     window.location.href = '/login';
   });
+  
+  // 测试邮件按钮点击事件
+  sendTestEmailBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    
+    const email = testEmailInput.value.trim();
+    
+    if (!email) {
+      messageDiv.innerHTML = '<p class="error">请输入测试邮箱地址</p>';
+      setTimeout(() => {
+        messageDiv.innerHTML = '';
+      }, 3000);
+      return;
+    }
+    
+    if (!validateEmail(email)) {
+      messageDiv.innerHTML = '<p class="error">请输入有效的邮箱地址</p>';
+      setTimeout(() => {
+        messageDiv.innerHTML = '';
+      }, 3000);
+      return;
+    }
+    
+    const originalText = sendTestEmailBtn.textContent;
+    sendTestEmailBtn.disabled = true;
+    sendTestEmailBtn.textContent = '发送中...';
+    
+    try {
+      const response = await fetch('/api/system/test-email', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email })
+      });
+      
+      const result = await response.json();
+      const resultDiv = document.getElementById('test-email-result');
+      
+      if (response.ok) {
+        messageDiv.innerHTML = `<p class="success">测试邮件发送成功！请检查邮箱收件箱（包括垃圾邮件文件夹）</p>`;
+        if (resultDiv) {
+          resultDiv.innerHTML = `
+            <div class="test-result-success">
+              ✅ 邮件主题：邮件发送测试 - ${result.site_name || 'EasyTier 节点管理系统'}
+              <br><small>发送时间：${new Date().toLocaleString('zh-CN')}</small>
+            </div>
+          `;
+        }
+        setTimeout(() => {
+          messageDiv.innerHTML = '';
+        }, 5000);
+      } else {
+        messageDiv.innerHTML = `<p class="error">邮件发送失败：${result.error || result.message || '未知错误'}</p>`;
+        if (resultDiv) {
+          resultDiv.innerHTML = `
+            <div class="test-result-error">
+              ❌ ${result.details ? `详细信息：${result.details}` : '请检查邮件服务配置'}
+            </div>
+          `;
+        }
+        setTimeout(() => {
+          messageDiv.innerHTML = '';
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('发送测试邮件失败:', error);
+      messageDiv.innerHTML = `<p class="error">网络错误：${error instanceof Error ? error.message : '请检查网络连接后重试'}</p>`;
+      const resultDiv = document.getElementById('test-email-result');
+      if (resultDiv) {
+        resultDiv.innerHTML = `
+          <div class="test-result-error">
+            ❌ 请检查网络连接或邮件服务配置
+          </div>
+        `;
+      }
+      setTimeout(() => {
+        messageDiv.innerHTML = '';
+      }, 3000);
+    } finally {
+      sendTestEmailBtn.disabled = false;
+      sendTestEmailBtn.textContent = originalText;
+    }
+  });
+  
+  // 邮箱验证函数
+  function validateEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
   
   // 加载系统设置
   async function loadSettings() {

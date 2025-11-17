@@ -104,6 +104,22 @@ body {
   margin-bottom: 40px;
 }
 
+/* 响应式调整 - 中等屏幕 */
+@media (max-width: 768px) {
+  .stats {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+}
+
+/* 响应式调整 - 小屏幕 */
+@media (max-width: 480px) {
+  .stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 .stat-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 30px;
@@ -132,10 +148,66 @@ body {
   justify-content: center;
   align-items: center;
   padding: 20px;
+  min-height: 180px;
 }
 
 .donut-container {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 环形图样式优化 */
+.donut-container canvas {
+  max-width: 120px;
+  max-height: 120px;
+  width: 120px;
+  height: 120px;
+  transition: all 0.3s ease;
+  border-radius: 50%;
+}
+
+/* 响应式调整 - 小屏幕时改为左右布局 */
+@media (max-width: 480px) {
+  .donut-card {
+    padding: 15px;
+    min-height: auto;
+  }
+  
+  /* 使用更具体的选择器覆盖内联样式 */
+  .donut-card .donut-container {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100%;
+    gap: 15px;
+  }
+  
+  .donut-container canvas {
+    flex-shrink: 0;
+    width: 80px !important;
+    height: 80px !important;
+    max-width: 80px;
+    max-height: 80px;
+  }
+  
+  .chart-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start !important;
+    text-align: left;
+  }
+  
+  .donut-text {
+    font-size: 16px !important;
+    margin-bottom: 3px !important;
+  }
+  
+  .donut-label {
+    font-size: 12px !important;
+  }
 }
 
 .donut {
@@ -157,15 +229,29 @@ body {
   transition: stroke-dasharray 0.5s ease;
 }
 
-.donut-text {
-  font-size: 14px;
+/* 图表文字样式 */
+.chart-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.chart-text span {
   font-weight: bold;
-  fill: #333;
+  color: #333;
+}
+
+.donut-text {
+  font-size: 18px;
+  margin-bottom: 5px;
 }
 
 .donut-label {
-  font-size: 12px;
-  fill: #666;
+  font-size: 14px;
+  color: #666;
+  font-weight: normal;
 }
 
 /* 节点列表 */
@@ -237,6 +323,32 @@ body {
   text-align: center;
   color: #667eea;
   margin-bottom: 30px;
+}
+
+/* 登录/注册消息样式 */
+#login-message,
+#register-message {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+#login-message.error,
+#register-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+#login-message.success,
+#register-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 }
 
 .form-group {
@@ -655,6 +767,115 @@ button[type="submit"]:hover,
   text-align: center;
 }
 
+/* 邮件发送测试容器样式 */
+.test-email-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.test-email-container input {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #e9ecef;
+  border-radius: 5px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.test-email-container input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.test-email-container button {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.test-email-container button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.test-email-container button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.test-result {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.test-result-loading {
+  background: #e2f0fd;
+  color: #0d6efd;
+  border: 1px solid #b6d4fe;
+  animation: pulse 1.5s infinite;
+}
+
+.test-result-success {
+  background: #d1edff;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.test-result-error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.test-result-success small,
+.test-result-error small {
+  color: inherit;
+  opacity: 0.8;
+  font-size: 12px;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* 辅助按钮样式 */
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #545b62;
+  transform: translateY(-1px);
+}
+
+.btn-secondary:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .header {
@@ -713,5 +934,23 @@ button[type="submit"]:hover,
   
   #node-detail-content {
     max-height: 60vh;
+  }
+  
+  .test-email-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .test-email-container input {
+    width: 100%;
+  }
+  
+  .test-email-container button {
+    width: 100%;
+  }
+  
+  .test-result {
+    font-size: 13px;
+    padding: 10px;
   }
 }

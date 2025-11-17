@@ -220,11 +220,12 @@ api.get('/public', async (c) => {
     
     const { results } = await c.env.DB.prepare(query).bind(...params).all<NodeDB>();
     
-    const publicNodes = results.map(node => ({
+const publicNodes = results.map(node => ({
       id: node.id,
       node_name: node.node_name,
       region_type: node.region_type,
       region_detail: node.region_detail,
+      connections: JSON.parse(node.connections),
       current_bandwidth: node.current_bandwidth,
       tier_bandwidth: node.tier_bandwidth,
       max_bandwidth: node.max_bandwidth,
@@ -233,6 +234,7 @@ api.get('/public', async (c) => {
       connection_count: node.connection_count,
       max_connections: node.max_connections,
       tags: node.tags,
+      notes: node.notes,
       status: node.status,
       recent_status: node.recent_status,
       allow_relay: node.allow_relay,

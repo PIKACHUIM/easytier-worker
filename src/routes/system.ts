@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { Env, InitializeRequest, SystemSettingsUpdateRequest, UserManageRequest, User, SystemSetting } from '../types';
-import { hashPassword, verifyJWT } from '../utils';
+import { hashPassword, verifyJWT, sendEmail, generateTestEmailContent } from '../utils';
 
 const system = new Hono<{ Bindings: Env }>();
 
@@ -491,6 +491,116 @@ system.delete('/users/:email', async (c) => {
   } catch (error) {
     console.error('删除用户错误:', error);
     return c.json({ error: '删除用户失败' }, 500);
+  }
+});
+
+// 邮件发送测试（需要管理员权限）
+system.post('/test-email', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    if (!payload || !payload.is_admin) {
+      return c.json({ error: '需要管理员权限' }, 403);
+    }
+    
+    const { email }: { email: string } = await c.req.json();
+    
+    if (!email) {
+      return c.json({ error: '邮箱地址不能为空' }, 400);
+    }
+    
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return c.json({ error: '邮箱格式不正确' }, 400);
+    }
+    
+    // 获取邮件服务配置
+    const resendApiKey = await c.env.DB.prepare(
+      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+    ).bind('resend_api_key').first<any>();
+    
+    const resendFromEmail = await c.env.DB.prepare(
+      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+    ).bind('resend_from_email').first<any>();
+    
+    const siteName = await c.env.DB.prepare(
+      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+    ).bind('site_name').first<any>();
+    
+    const siteUrl = await c.env.DB.prepare(
+      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+    ).bind('site_url').first<any>();
+    
+// 检查邮件服务配置
+    if (!resendApiKey?.setting_value) {
+      return c.json({ 
+        error: '邮件服务未配置',
+        details: '请先在系统设置中配置 Resend API 密钥'
+      }, 400);
+    }
+
+    if (!resendFromEmail?.setting_value || resendFromEmail.setting_value === 'noreply@example.com') {
+      return c.json({ 
+        error: '发件人邮箱未正确配置',
+        details: '请配置有效的发件人邮箱地址'
+      }, 400);
+    }
+
+    console.log('[邮件测试] 开始发送测试邮件到:', email);
+    console.log('[邮件测试] 配置信息:', {
+      hasApiKey: !!resendApiKey.setting_value,
+      fromEmail: resendFromEmail.setting_value,
+      siteName: siteName?.setting_value,
+      siteUrl: siteUrl?.setting_value
+    });
+
+    // 使用封装好的 sendEmail 函数
+    const subject = `邮件发送测试 - ${siteName?.setting_value || 'EasyTier 节点管理系统'}`;
+    const htmlContent = generateTestEmailContent(
+      siteName?.setting_value || 'EasyTier 节点管理系统',
+      siteUrl?.setting_value || 'https://example.com'
+    );
+    console.log('[邮件测试] 邮件内容:', htmlContent);
+    console.log('[邮件测试] 邮件主题:', subject);
+    console.log('[邮件测试] 邮件收件人:', email);
+    console.log('[邮件测试] 邮件发件人:', resendFromEmail.setting_value);
+    console.log('[邮件测试] 邮件 API 密钥:', resendApiKey.setting_value);
+    const emailResult = await sendEmail(
+      resendApiKey.setting_value,
+      resendFromEmail.setting_value,
+      email,
+      subject,
+      htmlContent
+    );
+
+    if (emailResult.success) {
+      console.log('[邮件测试] 测试邮件发送成功');
+      return c.json({ 
+        message: '测试邮件发送成功',
+        site_name: siteName?.setting_value,
+        details: '请检查邮箱收件箱（包括垃圾邮件文件夹）'
+      });
+    } else {
+      console.error('[邮件测试] 发送测试邮件失败:', emailResult.error);
+      return c.json({ 
+        error: '邮件发送失败',
+        details: emailResult.error || '请检查邮件服务配置'
+      }, 400);
+    }
+    
+  } catch (error) {
+    console.error('[邮件测试] 发送测试邮件异常:', error);
+    return c.json({ 
+      error: '邮件发送失败',
+      details: error instanceof Error ? error.message : '未知错误'
+    }, 500);
   }
 });
 

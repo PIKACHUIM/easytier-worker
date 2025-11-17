@@ -1,3 +1,4 @@
+import { Resend } from 'resend';
 import type { Context } from 'hono';
 import type { Env, JWTPayload } from './types';
 
@@ -157,6 +158,79 @@ export function escapeHtml(text: string): string {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// 邮件发送函数（使用 Resend 官方 SDK）
+export async function sendEmail(
+  apiKey: string,
+  fromEmail: string,
+  toEmail: string,
+  subject: string,
+  htmlContent: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const resend = new Resend(apiKey);
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: [toEmail],
+      subject: subject,
+      html: htmlContent,
+    });
+
+    if (error) {
+      return { 
+        success: false, 
+        error: error.message || '邮件发送失败' 
+      };
+    }
+
+    return { success: true, message: '邮件发送成功' };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : '未知错误' 
+    };
+  }
+}
+
+// 生成测试邮件内容
+export function generateTestEmailContent(siteName: string, siteUrl: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>邮件发送测试</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #007bff; color: white; padding: 20px; text-align: center; }
+        .content { background: #f8f9fa; padding: 20px; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>${siteName}</h1>
+          <p>邮件发送测试</p>
+        </div>
+        <div class="content">
+          <h2>恭喜！邮件发送测试成功</h2>
+          <p>这封邮件用于测试 ${siteName} 系统的邮件发送功能。</p>
+          <p>如果您收到了这封邮件，说明您的邮件服务配置正确。</p>
+          <p>系统网址: <a href="${siteUrl}">${siteUrl}</a></p>
+          <p>发送时间: ${new Date().toLocaleString('zh-CN')}</p>
+        </div>
+        <div class="footer">
+          <p>这是一封自动发送的测试邮件，请勿回复。</p>
+          <p>&copy; ${new Date().getFullYear()} ${siteName}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
 }
 
 // 日期格式化函数

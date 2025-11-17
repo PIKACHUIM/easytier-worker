@@ -28,68 +28,85 @@ function checkAdminAuth() {
   return false;
 }
 
-// 转义HTML
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+// 管理员连接方式管理
+window.adminConnections = [];
+
+function addAdminConnectionItem(connection = null) {
+  const container = document.getElementById('admin-connections-container');
+  if (!container) return;
+  
+  const index = window.adminConnections.length;
+  const connectionData = connection || { type: 'TCP', ip: '', port: '' };
+  window.adminConnections.push(connectionData);
+  
+  const connectionDiv = document.createElement('div');
+  connectionDiv.className = 'connection-item';
+  connectionDiv.style.cssText = 'display: grid; grid-template-columns: 2fr 2fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center;';
+  connectionDiv.innerHTML = `
+    <select id="admin-connection-type-${index}" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+      <option value="TCP" ${connectionData.type === 'TCP' ? 'selected' : ''}>TCP</option>
+      <option value="UDP" ${connectionData.type === 'UDP' ? 'selected' : ''}>UDP</option>
+      <option value="WS" ${connectionData.type === 'WS' ? 'selected' : ''}>WebSocket</option>
+      <option value="WSS" ${connectionData.type === 'WSS' ? 'selected' : ''}>WebSocket Secure</option>
+      <option value="WG" ${connectionData.type === 'WG' ? 'selected' : ''}>WireGuard</option>
+    </select>
+    <input type="text" id="admin-connection-ip-${index}" placeholder="IP地址" value="${connectionData.ip}" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+    <input type="number" id="admin-connection-port-${index}" placeholder="端口" value="${connectionData.port}" required min="1" max="65535" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+    <button type="button" onclick="removeAdminConnectionItem(${index})" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">删除</button>
+  `;
+  
+  container.appendChild(connectionDiv);
 }
 
-// 渲染节点行
-function renderNodeRows(nodes, mode) {
-  return nodes.map(node => `
-    <tr>
-      <td>${escapeHtml(node.node_name)}</td>
-      <td><span class="node-status ${node.status}">${node.status === 'online' ? '在线' : '离线'}</span></td>
-      <td>${node.region_type === 'domestic' ? '大陆' : '海外'} - ${escapeHtml(node.region_detail || '-')}</td>
-      <td>${(node.current_bandwidth || 0).toFixed(2)} Mbps</td>
-      <td>${(node.max_bandwidth || 0).toFixed(2)} Mbps</td>
-      <td>${node.connection_count} / ${node.max_connections}</td>
-      <td>${(node.used_traffic || 0).toFixed(2)} GB</td>
-      <td>${node.max_traffic === 0 ? '无限制' : node.max_traffic.toFixed(2) + ' GB'}</td>
-      <td>${node.allow_relay ? '是' : '否'}</td>
-      <td>${escapeHtml(node.tags || '-')}</td>
-      <td>${escapeHtml(node.notes || '-')}</td>
-      <td>
-        <button class="btn-small" onclick="viewAdminNodeDetail(${node.id})">详情</button>
-        <button class="btn-small" onclick="editAdminNode(${node.id})">编辑</button>
-        <button class="btn-small btn-danger" onclick="deleteAdminNode(${node.id})">删除</button>
-      </td>
-    </tr>
-  `).join('');
-}
+window.removeAdminConnectionItem = function(index) {
+  const container = document.getElementById('admin-connections-container');
+  if (!container) return;
+  
+  // 从数据中移除
+  window.adminConnections.splice(index, 1);
+  
+  // 清空容器
+  container.innerHTML = '';
+  
+  // 重新渲染所有连接项
+  const tempConnections = [...window.adminConnections];
+  window.adminConnections = [];
+  tempConnections.forEach(conn => addAdminConnectionItem(conn));
+};
 
-// 加载所有节点数据
-async function loadAllNodes() {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch('/api/nodes/all', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    const data = await response.json();
-    const container = document.getElementById('nodes-container');
-    
-    if (response.ok) {
-      // 缓存节点数据供详情查看使用
-      window.adminNodesCache = data.nodes;
-      
-      if (data.nodes.length === 0) {
-        container.innerHTML = '<tr><td colspan="12" style="text-align: center;">暂无节点</td></tr>';
-        return;
-      }
-      
-      container.innerHTML = renderNodeRows(data.nodes, 'admin');
-    } else {
-      container.innerHTML = '<tr><td colspan="12" style="text-align: center;">加载失败，请稍后重试</td></tr>';
-    }
-  } catch (error) {
-    console.error('加载节点列表失败:', error);
-    document.getElementById('nodes-container').innerHTML = '<tr><td colspan="12" style="text-align: center;">加载失败，请稍后重试</td></tr>';
+window.clearAdminConnections = function() {
+  const container = document.getElementById('admin-connections-container');
+  if (container) {
+    container.innerHTML = '';
   }
+  window.adminConnections = [];
+};
+
+window.collectAdminConnections = function() {
+  const result = [];
+  for (let i = 0; i < window.adminConnections.length; i++) {
+    const type = document.getElementById(`admin-connection-type-${i}`);
+    const ip = document.getElementById(`admin-connection-ip-${i}`);
+    const port = document.getElementById(`admin-connection-port-${i}`);
+    
+    if (type && ip && port) {
+      const connData = {
+        type: type.value,
+        ip: ip.value.trim(),
+        port: parseInt(port.value)
+      };
+      
+      if (connData.ip && connData.port) {
+        result.push(connData);
+      }
+    }
+  }
+  return result;
+};
+
+// 加载所有节点数据 - 使用统一的节点加载函数
+function loadAllNodes() {
+  return loadNodes('/api/nodes/all', 'admin', 'adminNodesCache', 12);
 }
 
 // 查看管理员节点详情
@@ -102,16 +119,30 @@ window.viewAdminNodeDetail = (nodeId) => {
       return;
     }
     
+    // 生成连接信息HTML
+    const connsHtml = node.connections && node.connections.length > 0 
+      ? node.connections.map((conn, idx) => (
+          '    <div class="node-info" style="background: white; padding: 8px; margin: 5px 0; border-radius: 4px;">' +
+          '      <strong>连接 ' + (idx + 1) + ':</strong> ' + conn.type + ' - ' + conn.ip + ':' + conn.port +
+          '    </div>'
+        )).join('')
+      : '    <div class="node-info">暂无连接信息</div>';
+    
     const content = [
       '<div style="display: grid; gap: 15px;">',
       '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
       '    <h3 style="margin-bottom: 10px; color: #667eea;">基本信息</h3>',
       '    <div class="node-info"><strong>节点名称:</strong> ' + escapeHtml(node.node_name) + '</div>',
-      '    <div class="node-info"><strong>所有者:</strong> ' + escapeHtml(node.owner_name || '未知') + '</div>',
+      '    <div class="node-info"><strong>所有者:</strong> ' + escapeHtml(node.user_email || '未知') + '</div>',
       '    <div class="node-info"><strong>地域:</strong> ' + (node.region_type === 'domestic' ? '大陆' : '海外') + ' - ' + escapeHtml(node.region_detail || '-') + '</div>',
       '    <div class="node-info"><strong>当前状态:</strong> <span class="node-status ' + node.status + '">' + (node.status === 'online' ? '在线' : '离线') + '</span></div>',
       '    <div class="node-info"><strong>允许中转:</strong> ' + (node.allow_relay ? '是' : '否') + '</div>',
       node.tags ? ('    <div class="node-info"><strong>标签:</strong> ' + escapeHtml(node.tags) + '</div>') : '',
+      node.notes ? ('    <div class="node-info"><strong>备注:</strong> ' + escapeHtml(node.notes) + '</div>') : '',
+      '  </div>',
+      '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
+      '    <h3 style="margin-bottom: 10px; color: #667eea;">连接方式</h3>',
+      connsHtml,
       '  </div>',
       '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
       '    <h3 style="margin-bottom: 10px; color: #667eea;">带宽与流量</h3>',
@@ -164,6 +195,8 @@ window.copyAdminToken = (nodeId) => {
       document.body.removeChild(textArea);
       alert('Token已复制到剪贴板');
     });
+  } else {
+    alert('Token不存在');
   }
 };
 
@@ -205,7 +238,7 @@ window.editAdminNode = (nodeId) => {
     return;
   }
   
-  // 填充表单数据
+// 填充表单数据
   document.getElementById('admin-node-id').value = node.id;
   document.getElementById('admin-node-name').value = node.node_name;
   document.getElementById('admin-region-type').value = node.region_type;
@@ -213,9 +246,38 @@ window.editAdminNode = (nodeId) => {
   document.getElementById('admin-max-bandwidth').value = node.max_bandwidth || '';
   document.getElementById('admin-max-connections').value = node.max_connections || '';
   document.getElementById('admin-max-traffic').value = node.max_traffic || '';
+  document.getElementById('admin-reset-cycle').value = node.reset_cycle || '';
   document.getElementById('admin-allow-relay').checked = node.allow_relay;
   document.getElementById('admin-tags').value = node.tags || '';
   document.getElementById('admin-notes').value = node.notes || '';
+  
+  // 处理有效期和长期有效逻辑
+  const validLongTermCheckbox = document.getElementById('admin-valid-long-term');
+  const validUntilInput = document.getElementById('admin-valid-until');
+  
+  if (validLongTermCheckbox && validUntilInput) {
+    const validUntil = node.valid_until ? new Date(node.valid_until).toISOString().split('T')[0] : '';
+    
+    if (validUntil === '2999-12-31') {
+      // 长期有效
+      validLongTermCheckbox.checked = true;
+      validUntilInput.value = '2999-12-31';
+      validUntilInput.disabled = true;
+    } else {
+      // 非长期有效
+      validLongTermCheckbox.checked = false;
+      validUntilInput.value = validUntil || '';
+      validUntilInput.disabled = false;
+    }
+  }
+  
+  // 加载现有连接方式
+  window.clearAdminConnections();
+  if (node.connections && node.connections.length > 0) {
+    node.connections.forEach(conn => addAdminConnectionItem(conn));
+  } else {
+    addAdminConnectionItem(); // 如果没有连接，添加一个默认的
+  }
   
   document.getElementById('admin-modal-title').textContent = '编辑节点';
   document.getElementById('admin-node-modal').style.display = 'block';
@@ -259,20 +321,31 @@ window.handleAdminNodeSubmit = async (e) => {
   submitBtn.disabled = true;
   submitBtn.textContent = '保存中...';
   
-  const formData = new FormData(form);
-  const data = {
-    node_name: formData.get('node_name'),
-    region_type: formData.get('region_type'),
-    region_detail: formData.get('region_detail'),
-    max_bandwidth: parseFloat(formData.get('max_bandwidth')) || 0,
-    max_connections: parseInt(formData.get('max_connections')) || 0,
-    max_traffic: parseFloat(formData.get('max_traffic')) || 0,
-    allow_relay: formData.get('allow_relay') === 'on',
-    tags: formData.get('tags'),
-    notes: formData.get('notes')
+  // 收集连接方式数据
+  const connections = window.collectAdminConnections();
+  if (connections.length === 0) {
+    alert('请至少添加一个连接方式');
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+    return;
+  }
+  
+const data = {
+    node_name: document.getElementById('admin-node-name').value,
+    region_type: document.getElementById('admin-region-type').value,
+    region_detail: document.getElementById('admin-region-detail').value,
+    connections: connections,
+    max_bandwidth: parseFloat(document.getElementById('admin-max-bandwidth').value) || 0,
+    max_connections: parseInt(document.getElementById('admin-max-connections').value) || 0,
+    max_traffic: parseFloat(document.getElementById('admin-max-traffic').value) || 0,
+    reset_cycle: parseInt(document.getElementById('admin-reset-cycle').value) || 0,
+    allow_relay: document.getElementById('admin-allow-relay').checked ? 1 : 0,
+    tags: document.getElementById('admin-tags').value,
+    notes: document.getElementById('admin-notes').value,
+    valid_until: document.getElementById('admin-valid-until').value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   };
   
-  const nodeId = formData.get('node_id');
+  const nodeId = document.getElementById('admin-node-id').value;
   
   try {
     const token = localStorage.getItem('token');
@@ -288,14 +361,20 @@ window.handleAdminNodeSubmit = async (e) => {
       body: JSON.stringify(data)
     });
     
-    if (response.ok) {
+if (response.ok) {
       alert(nodeId ? '节点更新成功' : '节点添加成功');
       form.reset();
+      window.clearAdminConnections();
       document.getElementById('admin-node-modal').style.display = 'none';
-      loadAllNodes();
+      
+      // 异步加载节点列表，错误不影响成功提示
+      loadAllNodes().catch(error => {
+        console.error('刷新节点列表失败:', error);
+        // 不显示错误提示，因为节点创建/更新已经成功
+      });
     } else {
       const result = await response.json();
-      alert(result.message || (nodeId ? '更新失败' : '添加失败'));
+      alert(result.error || (nodeId ? '更新失败' : '添加失败'));
     }
   } catch (error) {
     console.error('保存节点失败:', error);
@@ -320,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   loadAllNodes();
   
-  // 模态框事件监听
+// 模态框事件监听
   document.getElementById('admin-detail-close')?.addEventListener('click', () => {
     document.getElementById('admin-node-detail-modal').style.display = 'none';
   });
@@ -329,12 +408,63 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('admin-node-modal').style.display = 'none';
   });
   
-  document.getElementById('admin-add-node-btn')?.addEventListener('click', () => {
+document.getElementById('add-node-btn')?.addEventListener('click', () => {
     document.getElementById('admin-modal-title').textContent = '添加节点';
     document.getElementById('admin-node-form').reset();
     document.getElementById('admin-node-id').value = '';
+    window.clearAdminConnections();
+    addAdminConnectionItem(); // 添加一个默认连接项
+    
+    // 设置默认值：默认勾选长期有效
+    const validLongTermCheckbox = document.getElementById('admin-valid-long-term');
+    const validUntilInput = document.getElementById('admin-valid-until');
+    if (validLongTermCheckbox && validUntilInput) {
+      validLongTermCheckbox.checked = true;
+      validUntilInput.value = '2999-12-31';
+      validUntilInput.disabled = true;
+    }
+    
     document.getElementById('admin-node-modal').style.display = 'block';
   });
+  
+// 表单提交事件
+  const adminNodeForm = document.getElementById('admin-node-form');
+  if (adminNodeForm) {
+    adminNodeForm.addEventListener('submit', window.handleAdminNodeSubmit);
+  }
+  
+// 添加连接按钮事件
+  const addAdminConnectionBtn = document.getElementById('admin-add-connection-btn');
+  if (addAdminConnectionBtn) {
+    addAdminConnectionBtn.addEventListener('click', () => {
+      addAdminConnectionItem();
+    });
+  }
+  
+  // 长期有效复选框事件
+  const validLongTermCheckbox = document.getElementById('admin-valid-long-term');
+  const validUntilInput = document.getElementById('admin-valid-until');
+  
+  // 设置默认值：默认勾选长期有效
+  if (validLongTermCheckbox && validUntilInput) {
+    validLongTermCheckbox.checked = true;
+    validUntilInput.value = '2999-12-31';
+    validUntilInput.disabled = true;
+    
+    validLongTermCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        // 勾选长期有效，设置为2999/12/31并禁用输入
+        validUntilInput.value = '2999-12-31';
+        validUntilInput.disabled = true;
+      } else {
+        // 取消勾选，设置为一年后的今天并启用输入
+        const oneYearLater = new Date();
+        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+        validUntilInput.value = oneYearLater.toISOString().split('T')[0];
+        validUntilInput.disabled = false;
+      }
+    });
+  }
   
   // 点击模态框外部关闭
   window.addEventListener('click', (e) => {

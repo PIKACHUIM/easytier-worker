@@ -6,6 +6,82 @@ document.title = 'EasyTier 节点管理系统 - 我的节点';
 
 let currentEditingNodeId = null;
 
+// 连接方式管理
+window.connections = [];
+
+function addConnectionItem(connection = null) {
+  const container = document.getElementById('dashboard-connections-container');
+  if (!container) return;
+  
+  const index = window.connections.length;
+  const connectionData = connection || { type: 'TCP', ip: '', port: '' };
+  window.connections.push(connectionData);
+  
+  const connectionDiv = document.createElement('div');
+  connectionDiv.className = 'connection-item';
+  connectionDiv.style.cssText = 'display: grid; grid-template-columns: 2fr 2fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center;';
+  connectionDiv.innerHTML = `
+    <select id="dashboard-connection-type-${index}" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+      <option value="TCP" ${connectionData.type === 'TCP' ? 'selected' : ''}>TCP</option>
+      <option value="UDP" ${connectionData.type === 'UDP' ? 'selected' : ''}>UDP</option>
+      <option value="WS" ${connectionData.type === 'WS' ? 'selected' : ''}>WebSocket</option>
+      <option value="WSS" ${connectionData.type === 'WSS' ? 'selected' : ''}>WebSocket Secure</option>
+      <option value="WG" ${connectionData.type === 'WG' ? 'selected' : ''}>WireGuard</option>
+    </select>
+    <input type="text" id="dashboard-connection-ip-${index}" placeholder="IP地址" value="${connectionData.ip}" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+    <input type="number" id="dashboard-connection-port-${index}" placeholder="端口" value="${connectionData.port}" required min="1" max="65535" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+    <button type="button" onclick="removeConnectionItem(${index})" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">删除</button>
+  `;
+  
+  container.appendChild(connectionDiv);
+}
+
+window.removeConnectionItem = function(index) {
+  const container = document.getElementById('dashboard-connections-container');
+  if (!container) return;
+  
+  // 从数据中移除
+  window.connections.splice(index, 1);
+  
+  // 清空容器
+  container.innerHTML = '';
+  
+  // 重新渲染所有连接项
+  const tempConnections = [...window.connections];
+  window.connections = [];
+  tempConnections.forEach(conn => addConnectionItem(conn));
+};
+
+window.clearConnections = function() {
+  const container = document.getElementById('dashboard-connections-container');
+  if (container) {
+    container.innerHTML = '';
+  }
+  window.connections = [];
+};
+
+window.collectConnections = function() {
+  const result = [];
+  for (let i = 0; i < window.connections.length; i++) {
+    const type = document.getElementById(`dashboard-connection-type-${i}`);
+    const ip = document.getElementById(`dashboard-connection-ip-${i}`);
+    const port = document.getElementById(`dashboard-connection-port-${i}`);
+    
+    if (type && ip && port) {
+      const connData = {
+        type: type.value,
+        ip: ip.value.trim(),
+        port: parseInt(port.value)
+      };
+      
+      if (connData.ip && connData.port) {
+        result.push(connData);
+      }
+    }
+  }
+  return result;
+};
+
 function checkAdminAccess() {
   const userStr = localStorage.getItem('user');
   if (userStr) {
@@ -30,73 +106,9 @@ document.getElementById('logout-link')?.addEventListener('click', (e) => {
   window.location.href = '/';
 });
 
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '-';
-  return new Date(dateStr).toLocaleString('zh-CN');
-}
-
-function formatDateShort(dateStr) {
-  if (!dateStr) return '-';
-  return new Date(dateStr).toLocaleDateString('zh-CN');
-}
-
-// 统一渲染节点行（主页标准，仪表板加操作）
-function renderNodeRows(mode, nodes) {
-  return nodes.map(node => `
-    <tr>
-      <td>${escapeHtml(node.node_name)}</td>
-      <td><span class="node-status ${node.status}">${node.status === 'online' ? '在线' : '离线'}</span></td>
-      <td>${node.region_type === 'domestic' ? '大陆' : '海外'} - ${escapeHtml(node.region_detail || '-')}</td>
-      <td>${(node.current_bandwidth || 0).toFixed(2)} Mbps</td>
-      <td>${(node.max_bandwidth || 0).toFixed(2)} Mbps</td>
-      <td>${node.connection_count} / ${node.max_connections}</td>
-      <td>${(node.used_traffic || 0).toFixed(2)} GB</td>
-      <td>${node.max_traffic === 0 ? '无限制' : node.max_traffic.toFixed(2) + ' GB'}</td>
-      <td>${node.allow_relay ? '是' : '否'}</td>
-      <td>${escapeHtml(node.tags || '-')}</td>
-      <td>${escapeHtml(node.notes || '-')}</td>
-      ${mode === 'my' ? `<td>
-          <button class="btn-small" onclick="viewNodeDetail(${node.id})">详情</button>
-          <button class="btn-small" onclick="editNode(${node.id})">编辑</button>
-          <button class="btn-small btn-danger" onclick="deleteNode(${node.id})">删除</button>
-        </td>` : ''}
-    </tr>
-  `).join('');
-}
-
-// 加载我的节点数据
-async function loadMyNodes() {
-  try {
-    const response = await fetch('/api/nodes/my', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        return;
-      }
-      throw new Error(data.error);
-    }
-    const container = document.getElementById('nodes-container');
-    if (data.nodes.length === 0) {
-      container.innerHTML = '<tr><td colspan="13" style="text-align: center;">您还没有添加任何节点，点击上方"添加节点"按钮开始添加</td></tr>';
-      return;
-    }
-    // 使用统一渲染器（带操作）
-    container.innerHTML = renderNodeRows('my', data.nodes);
-  } catch (error) {
-    console.error('加载节点列表失败:', error);
-    document.getElementById('nodes-container').innerHTML = '<tr><td colspan="13" style="text-align: center;">加载失败，请刷新重试</td></tr>';
-  }
+// 加载我的节点数据 - 使用统一的节点加载函数
+function loadMyNodes() {
+  return loadNodes('/api/nodes/my', 'my', 'myNodesCache', 13, '您还没有添加任何节点，点击上方"添加节点"按钮开始添加');
 }
 
 // 查看节点详情
@@ -163,9 +175,9 @@ window.viewNodeDetail = async (nodeId) => {
       '</div>'
     ].join('');
     
-    document.getElementById('detail-node-name').textContent = node.node_name;
-    document.getElementById('node-detail-content').innerHTML = detailContent;
-    document.getElementById('node-detail-modal').style.display = 'block';
+document.getElementById('dashboard-detail-node-name').textContent = node.node_name;
+    document.getElementById('dashboard-node-detail-content').innerHTML = detailContent;
+    document.getElementById('dashboard-node-detail-modal').style.display = 'block';
   } catch (error) {
     console.error('加载节点详情失败:', error);
     alert('加载节点详情失败');
@@ -173,23 +185,24 @@ window.viewNodeDetail = async (nodeId) => {
 };
 
 // 复制Token
-window.copyToken = (nodeId) => {
-  const nodes = window.myNodesCache || [];
-  const node = nodes.find(n => n.id === nodeId);
-  if (node && node.report_token) {
-    navigator.clipboard.writeText(node.report_token).then(() => {
-      alert('Token已复制到剪贴板');
-    }).catch(() => {
-      // 备用方案
-      const textArea = document.createElement('textarea');
-      textArea.value = node.report_token;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      alert('Token已复制到剪贴板');
-    });
+window.copyToken = (token) => {
+  if (!token) {
+    alert('Token不存在');
+    return;
   }
+  
+  navigator.clipboard.writeText(token).then(() => {
+    alert('Token已复制到剪贴板');
+  }).catch(() => {
+    // 备用方案
+    const textArea = document.createElement('textarea');
+    textArea.value = token;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    alert('Token已复制到剪贴板');
+  });
 };
 
 // 重新生成Token
@@ -230,20 +243,49 @@ window.editNode = (nodeId) => {
     return;
   }
   
-  // 填充表单数据
-  document.getElementById('node-id').value = node.id;
-  document.getElementById('node-name').value = node.node_name;
-  document.getElementById('region-type').value = node.region_type;
-  document.getElementById('region-detail').value = node.region_detail || '';
-  document.getElementById('max-bandwidth').value = node.max_bandwidth || '';
-  document.getElementById('max-connections').value = node.max_connections || '';
-  document.getElementById('max-traffic').value = node.max_traffic || '';
-  document.getElementById('allow-relay').checked = node.allow_relay;
-  document.getElementById('tags').value = node.tags || '';
-  document.getElementById('notes').value = node.notes || '';
+// 填充表单数据
+  document.getElementById('dashboard-node-id').value = node.id;
+  document.getElementById('dashboard-node-name').value = node.node_name;
+  document.getElementById('dashboard-region-type').value = node.region_type;
+  document.getElementById('dashboard-region-detail').value = node.region_detail || '';
+  document.getElementById('dashboard-max-bandwidth').value = node.max_bandwidth || '';
+  document.getElementById('dashboard-max-connections').value = node.max_connections || '';
+  document.getElementById('dashboard-max-traffic').value = node.max_traffic || '';
+  document.getElementById('dashboard-reset-cycle').value = node.reset_cycle || '';
+  document.getElementById('dashboard-allow-relay').checked = node.allow_relay;
+  document.getElementById('dashboard-tags').value = node.tags || '';
+  document.getElementById('dashboard-notes').value = node.notes || '';
   
-  document.getElementById('node-modal-title').textContent = '编辑节点';
-  document.getElementById('node-modal').style.display = 'block';
+  // 处理有效期和长期有效逻辑
+  const validLongTermCheckbox = document.getElementById('dashboard-valid-long-term');
+  const validUntilInput = document.getElementById('dashboard-valid-until');
+  
+  if (validLongTermCheckbox && validUntilInput) {
+    const validUntil = node.valid_until ? new Date(node.valid_until).toISOString().split('T')[0] : '';
+    
+    if (validUntil === '2999-12-31') {
+      // 长期有效
+      validLongTermCheckbox.checked = true;
+      validUntilInput.value = '2999-12-31';
+      validUntilInput.disabled = true;
+    } else {
+      // 非长期有效
+      validLongTermCheckbox.checked = false;
+      validUntilInput.value = validUntil || '';
+      validUntilInput.disabled = false;
+    }
+  }
+  
+  // 加载现有连接方式
+  window.clearConnections();
+  if (node.connections && node.connections.length > 0) {
+    node.connections.forEach(conn => addConnectionItem(conn));
+  } else {
+    addConnectionItem(); // 如果没有连接，添加一个默认的
+  }
+  
+  document.getElementById('dashboard-modal-title').textContent = '编辑节点';
+  document.getElementById('dashboard-node-modal').style.display = 'block';
 };
 
 // 删除节点
@@ -284,20 +326,31 @@ window.handleNodeSubmit = async (e) => {
   submitBtn.disabled = true;
   submitBtn.textContent = '保存中...';
   
-  const formData = new FormData(form);
-  const data = {
-    node_name: formData.get('node_name'),
-    region_type: formData.get('region_type'),
-    region_detail: formData.get('region_detail'),
-    max_bandwidth: parseFloat(formData.get('max_bandwidth')) || 0,
-    max_connections: parseInt(formData.get('max_connections')) || 0,
-    max_traffic: parseFloat(formData.get('max_traffic')) || 0,
-    allow_relay: formData.get('allow_relay') === 'on',
-    tags: formData.get('tags'),
-    notes: formData.get('notes')
+  // 收集连接方式数据
+  const connections = window.collectConnections();
+  if (connections.length === 0) {
+    alert('请至少添加一个连接方式');
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+    return;
+  }
+  
+const data = {
+    node_name: document.getElementById('dashboard-node-name').value,
+    region_type: document.getElementById('dashboard-region-type').value,
+    region_detail: document.getElementById('dashboard-region-detail').value,
+    connections: connections,
+    max_bandwidth: parseFloat(document.getElementById('dashboard-max-bandwidth').value) || 0,
+    max_connections: parseInt(document.getElementById('dashboard-max-connections').value) || 0,
+    max_traffic: parseFloat(document.getElementById('dashboard-max-traffic').value) || 0,
+    reset_cycle: parseInt(document.getElementById('dashboard-reset-cycle').value) || 30,
+    allow_relay: document.getElementById('dashboard-allow-relay').checked ? 1 : 0,
+    tags: document.getElementById('dashboard-tags').value,
+    notes: document.getElementById('dashboard-notes').value,
+    valid_until: document.getElementById('dashboard-valid-until')?.value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   };
   
-  const nodeId = formData.get('node_id');
+  const nodeId = document.getElementById('dashboard-node-id').value;
   
   try {
     const token = localStorage.getItem('token');
@@ -313,14 +366,20 @@ window.handleNodeSubmit = async (e) => {
       body: JSON.stringify(data)
     });
     
-    if (response.ok) {
+if (response.ok) {
       alert(nodeId ? '节点更新成功' : '节点添加成功');
       form.reset();
-      document.getElementById('node-modal').style.display = 'none';
-      loadMyNodes();
+      window.clearConnections();
+      document.getElementById('dashboard-node-modal').style.display = 'none';
+      
+      // 异步加载节点列表，错误不影响成功提示
+      loadMyNodes().catch(error => {
+        console.error('刷新节点列表失败:', error);
+        // 不显示错误提示，因为节点创建/更新已经成功
+      });
     } else {
       const result = await response.json();
-      alert(result.message || (nodeId ? '更新失败' : '添加失败'));
+      alert(result.error || (nodeId ? '更新失败' : '添加失败'));
     }
   } catch (error) {
     console.error('保存节点失败:', error);
@@ -358,36 +417,88 @@ document.addEventListener('DOMContentLoaded', () => {
   if (user) {
     const userInfoElement = document.getElementById('user-info-text');
     if (userInfoElement) {
-      userInfoElement.textContent = `欢迎，${user.username}`;
+      userInfoElement.textContent = `欢迎，${user.email || user.username}`;
     }
   }
   
   loadMyNodes();
+  checkAdminAccess();
   
   // 模态框事件监听
-  document.getElementById('detail-close')?.addEventListener('click', () => {
-    document.getElementById('node-detail-modal').style.display = 'none';
+  document.getElementById('dashboard-detail-close')?.addEventListener('click', () => {
+    document.getElementById('dashboard-node-detail-modal').style.display = 'none';
   });
   
-  document.getElementById('modal-close')?.addEventListener('click', () => {
-    document.getElementById('node-modal').style.display = 'none';
+document.getElementById('dashboard-modal-close')?.addEventListener('click', () => {
+    document.getElementById('dashboard-node-modal').style.display = 'none';
   });
   
-  document.getElementById('add-node-btn')?.addEventListener('click', () => {
-    document.getElementById('node-modal-title').textContent = '添加节点';
-    document.getElementById('node-form').reset();
-    document.getElementById('node-id').value = '';
-    document.getElementById('node-modal').style.display = 'block';
+document.getElementById('add-node-btn')?.addEventListener('click', () => {
+    document.getElementById('dashboard-modal-title').textContent = '添加节点';
+    document.getElementById('dashboard-node-form').reset();
+    document.getElementById('dashboard-node-id').value = '';
+    window.clearConnections();
+    addConnectionItem(); // 添加一个默认连接项
+    
+    // 设置默认值：默认勾选长期有效
+    const validLongTermCheckbox = document.getElementById('dashboard-valid-long-term');
+    const validUntilInput = document.getElementById('dashboard-valid-until');
+    if (validLongTermCheckbox && validUntilInput) {
+      validLongTermCheckbox.checked = true;
+      validUntilInput.value = '2999-12-31';
+      validUntilInput.disabled = true;
+    }
+    
+    document.getElementById('dashboard-node-modal').style.display = 'block';
   });
+  
+// 表单提交事件
+  const nodeForm = document.getElementById('dashboard-node-form');
+  if (nodeForm) {
+    nodeForm.addEventListener('submit', window.handleNodeSubmit);
+  }
+  
+// 添加连接按钮事件
+  const addConnectionBtn = document.getElementById('dashboard-add-connection-btn');
+  if (addConnectionBtn) {
+    addConnectionBtn.addEventListener('click', () => {
+      addConnectionItem();
+    });
+  }
+  
+  // 长期有效复选框事件
+  const validLongTermCheckbox = document.getElementById('dashboard-valid-long-term');
+  const validUntilInput = document.getElementById('dashboard-valid-until');
+  
+  // 设置默认值：默认勾选长期有效
+  if (validLongTermCheckbox && validUntilInput) {
+    validLongTermCheckbox.checked = true;
+    validUntilInput.value = '2999-12-31';
+    validUntilInput.disabled = true;
+    
+    validLongTermCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        // 勾选长期有效，设置为2999/12/31并禁用输入
+        validUntilInput.value = '2999-12-31';
+        validUntilInput.disabled = true;
+      } else {
+        // 取消勾选，设置为一年后的今天并启用输入
+        const oneYearLater = new Date();
+        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+        validUntilInput.value = oneYearLater.toISOString().split('T')[0];
+        validUntilInput.disabled = false;
+      }
+    });
+  }
   
   // 点击模态框外部关闭
   window.addEventListener('click', (e) => {
     const target = e.target;
-    if (target && target.id === 'node-detail-modal') {
-      document.getElementById('node-detail-modal').style.display = 'none';
+    if (target && target.id === 'dashboard-node-detail-modal') {
+      document.getElementById('dashboard-node-detail-modal').style.display = 'none';
     }
-    if (target && target.id === 'node-modal') {
-      document.getElementById('node-modal').style.display = 'none';
+    if (target && target.id === 'dashboard-node-modal') {
+      document.getElementById('dashboard-node-modal').style.display = 'none';
     }
   });
   
