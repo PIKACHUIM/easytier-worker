@@ -22,7 +22,7 @@ api.post('/report', async (c) => {
         }
 
         // 获取节点信息（通过节点名称和用户邮箱）
-const node = await c.env.DB.prepare(
+        const node = await c.env.DB.prepare(
             'SELECT * FROM nodes WHERE node_name = ? AND user_email = ?'
         ).bind(data.node_name, data.email).first();
 
@@ -125,26 +125,32 @@ const node = await c.env.DB.prepare(
 api.use('/query', async (c) => {
     try {
         let data: NodeQueryRequest = {};
-        
-        // 根据请求方法获取参数
+
+// 根据请求方法获取参数
         if (c.req.method === 'GET') {
             // GET请求从查询参数获取
-data = {
-                region: c.req.query('region') as 'domestic' | 'overseas' | 'all' | undefined || undefined,
-                priority: c.req.query('priority') as any || undefined,
-                relay_only: c.req.query('relay_only') === 'true'
+            const region = c.req.query('region');
+            const priority = c.req.query('priority');
+            const relayOnly = c.req.query('relay_only');
+            
+            // 只有当参数存在时才设置，否则保持undefined
+            data = {
+                region: region ? (region as 'domestic' | 'overseas' | 'all') : undefined,
+                priority: priority ? priority as any : undefined,
+                relay_only: relayOnly === 'true' ? true : (relayOnly === 'false' ? false : undefined)
             };
         } else {
             // POST请求从JSON body获取，处理没有JSON的情况
             try {
-                data = await c.req.json() || {};
+                const jsonData = await c.req.json();
+                data = jsonData || {};
             } catch (error) {
                 // 如果JSON解析失败，使用空对象
                 data = {};
             }
         }
-        
-        console.log(data);
+
+console.log(data);
         // 构建查询条件
         let query = 'SELECT * FROM nodes WHERE status = ? AND valid_until > ?';
         const params: any[] = ['online', new Date().toISOString()];
@@ -155,18 +161,20 @@ data = {
             params.push(data.region);
         }
 
-        // 中转筛选
-        if (data.relay_only) {
+        // 中转筛选 - 只有明确为true时才筛选
+        if (data.relay_only === true) {
             query += ' AND allow_relay = 1';
         }
 
-        const {results} = await c.env.DB.prepare(query).bind(...params).all();
+const {results} = await c.env.DB.prepare(query).bind(...params).all();
+
+        console.log(`查询到 ${results.length} 个符合条件的节点`);
 
         if (results.length === 0) {
             return c.json({nodes: []});
         }
 
-        // 根据优先级排序
+// 根据优先级排序或随机排序
         let sortedNodes = results.map((node: any) => {
             const connections = JSON.parse(node.connections);
             let score = 0;
@@ -183,8 +191,7 @@ data = {
                 // 带宽优先：计算人均带宽
                 score = calculateBandwidthPerUser(node.tier_bandwidth, node.connection_count);
             } else if (data.priority === 'latency') {
-                // 延迟优先：这里简化处理，实际应该根据客户端 IP 计算距离
-                // 暂时使用连接数作为参考（连接数少的可能延迟更低）
+                // 延迟优先：使用可用连接数作为参考（连接数少的可能延迟更低）
                 score = node.max_connections - node.connection_count;
             }
 
@@ -195,11 +202,20 @@ data = {
             };
         });
 
-        // 按分数降序排序
-        sortedNodes.sort((a: any, b: any) => b.score - a.score);
+        // 如果没有指定优先级，则随机打乱节点
+        if (!data.priority) {
+            // Fisher-Yates 洗牌算法随机打乱数组
+            for (let i = sortedNodes.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [sortedNodes[i], sortedNodes[j]] = [sortedNodes[j], sortedNodes[i]];
+            }
+        } else {
+            // 有优先级则按分数降序排序
+            sortedNodes.sort((a: any, b: any) => b.score - a.score);
+        }
 
-        // 返回前 10 个节点
-        const topNodes = sortedNodes.slice(0, 10).map((node: any) => ({
+        // 返回前 3 个节点（如果节点数不足10个，返回所有节点）
+        const topNodes = sortedNodes.slice(0, 3).map((node: any) => ({
             id: node.id,
             node_name: node.node_name,
             region_type: node.region_type,
@@ -214,6 +230,8 @@ data = {
             tags: node.tags,
             allow_relay: node.allow_relay
         }));
+
+        console.log(`最终返回 ${topNodes.length} 个节点`);
 
         return c.json({nodes: topNodes});
     } catch (error) {
@@ -237,9 +255,9 @@ api.get('/public', async (c) => {
 
         query += ' ORDER BY status DESC, created_at DESC';
 
-const {results} = await c.env.DB.prepare(query).bind(...params).all();
+        const {results} = await c.env.DB.prepare(query).bind(...params).all();
 
-const publicNodes = results.map((node: any) => ({
+        const publicNodes = results.map((node: any) => ({
             id: node.id,
             node_name: node.node_name,
             region_type: node.region_type,
@@ -261,7 +279,7 @@ const publicNodes = results.map((node: any) => ({
         }));
 
         // 计算在线节点的平均负载和总连接数
-const onlineNodes = results.filter((n: any) => n.status === 'online');
+        const onlineNodes = results.filter((n: any) => n.status === 'online');
         const totalConnections = onlineNodes.reduce((sum: number, n: any) => sum + n.connection_count, 0);
         const avgBandwidth = onlineNodes.length > 0
             ? onlineNodes.reduce((sum: number, n: any) => sum + n.current_bandwidth, 0) / onlineNodes.length
@@ -289,7 +307,7 @@ const onlineNodes = results.filter((n: any) => n.status === 'online');
 api.get('/stats', async (c) => {
     try {
         // 总节点数
-const totalNodes = await c.env.DB.prepare(
+        const totalNodes = await c.env.DB.prepare(
             'SELECT COUNT(*) as count FROM nodes'
         ).first();
 

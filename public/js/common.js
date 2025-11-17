@@ -197,7 +197,7 @@ function renderNodeRows(mode, nodes) {
         </div>
         <div class="progress-text">${usedTraffic.toFixed(2)} / ${maxTraffic === 0 ? '无限制' : maxTraffic.toFixed(2) + ' GB'}</div>
       </td>
-      <td>${escapeHtml(connectionInfo)}</td>
+<td>${connectionInfo}</td>
       <td>${node.allow_relay ? '是' : '否'}</td>
       <td>${escapeHtml(node.tags || '-')}</td>
       <td>${escapeHtml(node.notes || '-')}</td>
