@@ -40,7 +40,10 @@ function HomeIndex() {
                         </div>
                     </div>
                 </section>
-                <section class="nodes-list">
+<section class="nodes-list">
+                    <div id="public-stats" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none;">
+                        {/* 统计信息将通过JavaScript动态填充 */}
+                    </div>
                     <NodeTable
                         mode="home"
                         showOfflineToggle={true}
@@ -48,9 +51,10 @@ function HomeIndex() {
                         tableId="nodes-table"
                     />
                 </section>
-                <NodeEdits mode="admin"/>
+<NodeEdits mode="admin"/>
             </main>
             <WebFooter title="公共节点页面"/>
+            <script src="/js/common.js"></script>
             <script src="/js/homepage.js"></script>
         </div>
     );

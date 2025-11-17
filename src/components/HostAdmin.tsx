@@ -38,6 +38,7 @@ const HostAdmin: React.FC = () => {
                             <div id="test-email-result" className="test-result"></div>
                         </div>
                         <button type="button" id="send-test-email" className="btn-primary">发送测试邮件</button>
+                        <br/><br/><br/>
                         <h2>网站配置</h2>
                         <div className="form-group">
                             <label htmlFor="site-name">网站名称</label>
@@ -51,7 +52,6 @@ const HostAdmin: React.FC = () => {
                         <button type="submit">保存设置</button>
                     </form>
                 </section>
-
                 <section className="settings-section">
                     <h2>用户管理</h2>
                     <div id="users-container">

@@ -111,77 +111,9 @@ function loadMyNodes() {
   return loadNodes('/api/nodes/my', 'my', 'myNodesCache', 13, '您还没有添加任何节点，点击上方"添加节点"按钮开始添加');
 }
 
-// 查看节点详情
-window.viewNodeDetail = async (nodeId) => {
-  try {
-    const response = await fetch(`/api/nodes/${nodeId}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    
-    const node = data.node;
-    const connsHtml = node.connections.map((conn, idx) => (
-      '    <div class="node-info" style="background: white; padding: 8px; margin: 5px 0; border-radius: 4px;">' +
-      '      <strong>连接 ' + (idx + 1) + ':</strong> ' + conn.type + ' - ' + conn.ip + ':' + conn.port +
-      '    </div>'
-    )).join('');
-    const detailContent = [
-      '<div style="display: grid; gap: 15px;">',
-      '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
-      '    <h3 style="margin-bottom: 10px; color: #667eea;">基本信息</h3>',
-      '    <div class="node-info"><strong>节点名称:</strong> ' + escapeHtml(node.node_name) + '</div>',
-      '    <div class="node-info"><strong>地域:</strong> ' + (node.region_type === 'domestic' ? '大陆' : '海外') + ' - ' + escapeHtml(node.region_detail) + '</div>',
-      '    <div class="node-info"><strong>用户邮箱:</strong> ' + escapeHtml(node.user_email) + '</div>',
-      '    <div class="node-info"><strong>创建时间:</strong> ' + formatDate(node.created_at) + '</div>',
-      '    <div class="node-info"><strong>有效期至:</strong> ' + formatDate(node.valid_until) + '</div>',
-      '    <div class="node-info"><strong>当前状态:</strong> <span class="node-status ' + node.status + '">' + (node.status === 'online' ? '在线' : '离线') + '</span></div>',
-      '    <div class="node-info"><strong>最后上报:</strong> ' + formatDate(node.last_report_at) + '</div>',
-      '    <div class="node-info"><strong>允许中转:</strong> ' + (node.allow_relay ? '是' : '否') + '</div>',
-      node.tags ? ('    <div class="node-info"><strong>标签:</strong> ' + escapeHtml(node.tags) + '</div>') : '',
-      node.notes ? ('    <div class="node-info"><strong>备注:</strong> ' + escapeHtml(node.notes) + '</div>') : '',
-      '  </div>',
-      '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
-      '    <h3 style="margin-bottom: 10px; color: #667eea;">连接方式</h3>',
-      connsHtml,
-      '  </div>',
-      '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
-      '    <h3 style="margin-bottom: 10px; color: #667eea;">带宽与流量</h3>',
-      '    <div class="node-info"><strong>当前带宽:</strong> ' + Number(node.current_bandwidth || 0).toFixed(2) + ' Mbps</div>',
-      '    <div class="node-info"><strong>阶梯带宽:</strong> ' + Number(node.tier_bandwidth || 0).toFixed(2) + ' Mbps</div>',
-      '    <div class="node-info"><strong>最大带宽:</strong> ' + Number(node.max_bandwidth || 0).toFixed(2) + ' Mbps</div>',
-      '    <div class="node-info"><strong>已用流量:</strong> ' + Number(node.used_traffic || 0).toFixed(2) + ' GB</div>',
-      '    <div class="node-info"><strong>修正流量:</strong> ' + Number(node.correction_traffic || 0).toFixed(2) + ' GB</div>',
-      '    <div class="node-info"><strong>上报流量:</strong> ' + Number((node.used_traffic || 0) - (node.correction_traffic || 0)).toFixed(2) + ' GB</div>',
-      '    <div class="node-info"><strong>最大流量:</strong> ' + Number(node.max_traffic || 0).toFixed(2) + ' GB</div>',
-      '    <div class="node-info"><strong>重置周期:</strong> ' + node.reset_cycle + ' 天</div>',
-      '    <div class="node-info"><strong>下次重置:</strong> ' + formatDate(node.reset_date) + '</div>',
-      '  </div>',
-      '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
-      '    <h3 style="margin-bottom: 10px; color: #667eea;">连接信息</h3>',
-      '    <div class="node-info"><strong>当前连接数:</strong> ' + node.connection_count + '</div>',
-      '    <div class="node-info"><strong>最大连接数:</strong> ' + node.max_connections + '</div>',
-      '  </div>',
-      '  <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;">',
-      '    <h3 style="margin-bottom: 10px; color: #856404;">上报Token</h3>',
-      '    <div style="background: white; padding: 12px; border-radius: 4px; margin: 10px 0;">',
-      '      <code style="font-family: monospace; font-size: 13px; word-break: break-all; color: #333;">' + (node.report_token || '未生成') + '</code>',
-      '    </div>',
-      '    <div style="display: flex; gap: 10px; margin-top: 10px;">',
-      '      <button class="btn-small" onclick="copyToken(' + JSON.stringify(node.report_token || '') + ')">复制Token</button>',
-      '      <button class="btn-small" onclick="regenerateToken(' + node.id + ')">重新生成Token</button>',
-      '    </div>',
-      '  </div>',
-      '</div>'
-    ].join('');
-    
-document.getElementById('dashboard-detail-node-name').textContent = node.node_name;
-    document.getElementById('dashboard-node-detail-content').innerHTML = detailContent;
-    document.getElementById('dashboard-node-detail-modal').style.display = 'block';
-  } catch (error) {
-    console.error('加载节点详情失败:', error);
-    alert('加载节点详情失败');
-  }
+// 查看节点详情 - 使用统一的节点详情查看函数
+window.viewNodeDetail = (nodeId) => {
+  showNodeDetail(nodeId, 'my', 'dashboard-node-detail-modal', 'dashboard-detail-node-name', 'dashboard-node-detail-content');
 };
 
 // 复制Token

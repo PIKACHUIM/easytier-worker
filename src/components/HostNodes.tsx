@@ -20,10 +20,11 @@ function HostNodes() {
                 />
             </main>
 
-            <NodeEdits mode="admin" modalId="admin-node-modal" formId="admin-node-form" title="添加节点"/>
+<NodeEdits mode="admin" modalId="admin-node-modal" formId="admin-node-form" title="添加节点"/>
 
             <WebFooter title="管理面板页面"/>
 
+            <script src="/js/common.js"></script>
             <script src="/js/admin.js"></script>
         </div>
     )

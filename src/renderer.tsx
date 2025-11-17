@@ -543,10 +543,34 @@ export const renderer = jsxRenderer(({ children }) => {
             color: #c62828;
             font-weight: 600;
           }
-          #logout-link:hover {
+#logout-link:hover {
             background-color: rgba(220, 53, 69, 0.25);
             border-color: rgba(220, 53, 69, 0.6);
             color: #b71c1c;
+          }
+
+          /* 进度条样式 */
+          .progress-container {
+            width: 100%;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            overflow: hidden;
+          }
+
+          .progress-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease, background-color 0.3s ease;
+            min-width: 2px;
+          }
+
+          .progress-text {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 2px;
           }
 
           /* 响应式设计 */
@@ -601,17 +625,59 @@ export const renderer = jsxRenderer(({ children }) => {
             return div.innerHTML;
           };
 
-          window.renderNodeRows = function(mode, nodes) {
+window.renderNodeRows = function(mode, nodes) {
             return nodes.map(function(node) {
+              // 计算带宽使用率
+              var currentBandwidth = Number(node.current_bandwidth || 0);
+              var maxBandwidth = Number(node.max_bandwidth || 0);
+              var bandwidthUsage = maxBandwidth > 0 ? (currentBandwidth / maxBandwidth * 100) : 0;
+              var bandwidthColor = bandwidthUsage < 40 ? '#4caf50' : (bandwidthUsage < 60 ? '#2196f3' : (bandwidthUsage < 80 ? '#ff9800' : '#f44336'));
+              
+              // 计算流量使用率
+              var usedTraffic = Number(node.used_traffic || 0);
+              var maxTraffic = Number(node.max_traffic || 0);
+              var trafficUsage = maxTraffic > 0 ? (usedTraffic / maxTraffic * 100) : 0;
+              var trafficColor = trafficUsage < 40 ? '#4caf50' : (trafficUsage < 60 ? '#2196f3' : (trafficUsage < 80 ? '#ff9800' : '#f44336'));
+              
+              // 计算连接数使用率
+              var connectionCount = Number(node.connection_count || 0);
+              var maxConnections = Number(node.max_connections || 0);
+              var connectionUsage = maxConnections > 0 ? (connectionCount / maxConnections * 100) : 0;
+              var connectionColor = connectionUsage < 40 ? '#4caf50' : (connectionUsage < 60 ? '#2196f3' : (connectionUsage < 80 ? '#ff9800' : '#f44336'));
+              
+              // 生成连接信息字符串
+              var connectionInfo = '';
+              if (node.connections && node.connections.length > 0) {
+                connectionInfo = node.connections.map(function(conn) {
+                  return conn.type + '://' + conn.ip + ':' + conn.port;
+                }).join(', ');
+              } else {
+                connectionInfo = '-';
+              }
+
               var baseCols = '' +
                 '<td>' + window.escapeHtml(node.node_name) + '</td>' +
                 '<td><span class="node-status ' + node.status + '">' + (node.status === 'online' ? '在线' : '离线') + '</span></td>' +
                 '<td>' + (node.region_type === 'domestic' ? '大陆' : '海外') + ' - ' + window.escapeHtml(node.region_detail || '-') + '</td>' +
-                '<td>' + (Number(node.current_bandwidth || 0).toFixed(2)) + ' Mbps</td>' +
-                '<td>' + (Number(node.max_bandwidth || 0).toFixed(2)) + ' Mbps</td>' +
-                '<td>' + (node.connection_count || 0) + ' / ' + (node.max_connections || 0) + '</td>' +
-                '<td>' + (Number(node.used_traffic || 0).toFixed(2)) + ' GB</td>' +
-                '<td>' + (node.max_traffic === 0 ? '无限制' : Number(node.max_traffic || 0).toFixed(2) + ' GB') + '</td>' +
+                '<td>' +
+                  '<div class="progress-container">' +
+                    '<div class="progress-bar" style="width: ' + Math.min(bandwidthUsage, 100) + '%; background-color: ' + bandwidthColor + ';"></div>' +
+                  '</div>' +
+                  '<div class="progress-text">' + currentBandwidth.toFixed(2) + ' / ' + maxBandwidth.toFixed(2) + ' Mbps</div>' +
+                '</td>' +
+                '<td>' +
+                  '<div class="progress-container">' +
+                    '<div class="progress-bar" style="width: ' + Math.min(connectionUsage, 100) + '%; background-color: ' + connectionColor + ';"></div>' +
+                  '</div>' +
+                  '<div class="progress-text">' + connectionCount + ' / ' + maxConnections + '</div>' +
+                '</td>' +
+                '<td>' +
+                  '<div class="progress-container">' +
+                    '<div class="progress-bar" style="width: ' + Math.min(trafficUsage, 100) + '%; background-color: ' + trafficColor + ';"></div>' +
+                  '</div>' +
+                  '<div class="progress-text">' + usedTraffic.toFixed(2) + ' / ' + (maxTraffic === 0 ? '无限制' : maxTraffic.toFixed(2) + ' GB') + '</div>' +
+                '</td>' +
+                '<td>' + window.escapeHtml(connectionInfo) + '</td>' +
                 '<td>' + (node.allow_relay ? '是' : '否') + '</td>' +
                 '<td>' + window.escapeHtml(node.tags || '-') + '</td>';
 
