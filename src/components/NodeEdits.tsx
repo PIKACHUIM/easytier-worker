@@ -33,7 +33,7 @@ function NodeEdits({
                         />
                     </div>
 
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
                         <div className="form-group">
                             <label htmlFor={`${prefix}region-type`}>地域类型 *</label>
                             <select id={`${prefix}region-type`} required>
@@ -47,6 +47,25 @@ function NodeEdits({
                                 type="text"
                                 id={`${prefix}region-detail`}
                                 placeholder="例如：北京、东京（可不填）"
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                        <div className="form-group">
+                            <label htmlFor={`${prefix}network-name`}>测试网络名称</label>
+                            <input
+                                type="text"
+                                id={`${prefix}network-name`}
+                                placeholder="例如：test-network"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor={`${prefix}network-token`}>测试网络密码</label>
+                            <input
+                                type="text"
+                                id={`${prefix}network-token`}
+                                placeholder="网络访问密码"
                             />
                         </div>
                     </div>

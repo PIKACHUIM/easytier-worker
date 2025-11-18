@@ -3,9 +3,9 @@ import WebFooter from './WebFooter';
 
 function UserReset() {
     return (
-        <div class="container">
+<div className="container">
             <WebHeader title="EasyTier 节点管理系统 - 密码重置"/>
-            <div class="auth-form">
+<div className="auth-form">
                 <h1>密码重置</h1>
                 <div id="reset-message" style="display: none;"></div>
                 
@@ -13,7 +13,7 @@ function UserReset() {
                 <div id="request-reset-form-container">
                     <p>请输入您的邮箱地址，我们将发送密码重置链接到您的邮箱。</p>
                     <form id="request-reset-form">
-                        <div class="form-group">
+<div className="form-group">
                             <label for="email">邮箱</label>
                             <input type="email" id="email" name="email" required/>
                         </div>
@@ -27,11 +27,11 @@ function UserReset() {
                     <p>请输入您的新密码。</p>
                     <form id="reset-password-form">
                         <input type="hidden" id="reset-token" name="reset-token"/>
-                        <div class="form-group">
+<div className="form-group">
                             <label for="new-password">新密码</label>
                             <input type="password" id="new-password" name="new-password" required minLength={6}/>
                         </div>
-                        <div class="form-group">
+<div className="form-group">
                             <label for="confirm-password">确认新密码</label>
                             <input type="password" id="confirm-password" name="confirm-password" required/>
                         </div>

@@ -176,7 +176,7 @@ function renderNodeRows(mode, nodes) {
             connectionInfo = '<span style="color: #999; font-style: italic; padding: 8px 12px; background: #f8f9fa; border-radius: 4px; display: inline-block;">暂无连接</span>';
         }
 
-        return `
+return `
     <tr>
       <td>${escapeHtml(node.node_name)}</td>
       <td><span class="node-status ${node.status}">${node.status === 'online' ? '在线' : '离线'}</span></td>
@@ -354,12 +354,14 @@ function renderNodeDetail(node, mode, modalId, titleId, contentId) {
         : '    <div class="node-info">暂无连接信息</div>';
 
     // 构建内容数组
-    const content = [
+const content = [
         '<div style="display: grid; gap: 15px;">',
         '  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">',
         '    <h3 style="margin-bottom: 10px; color: #667eea;">基本信息</h3>',
         '    <div class="node-info"><strong>节点名称:</strong> ' + escapeHtml(node.node_name) + '</div>',
         '    <div class="node-info"><strong>地域:</strong> ' + (node.region_type === 'domestic' ? '大陆' : '海外') + ' - ' + escapeHtml(node.region_detail || '-') + '</div>',
+        '    <div class="node-info"><strong>测试网络名称:</strong> ' + escapeHtml(node.network_name || '-') + '</div>',
+        '    <div class="node-info"><strong>测试网络密码:</strong> ' + escapeHtml(node.network_token || '-') + '</div>',
     ];
 
     // 根据模式添加不同字段

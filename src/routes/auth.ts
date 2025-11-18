@@ -10,7 +10,7 @@ auth.post('/register', async (c) => {
     // 检查系统是否已初始化
       const initSetting = await c.env.DB.prepare(
       'SELECT setting_value FROM confs WHERE setting_key = ?'
-    ).bind('system_initialized').first<any>();
+    ).bind('system_initialized').first();
     
     if (!initSetting || initSetting.setting_value !== '1') {
       return c.json({ error: '系统尚未初始化，请先完成初始化' }, 400);
@@ -30,7 +30,7 @@ auth.post('/register', async (c) => {
     // 检查用户是否已存在
     const existingUser = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
-    ).bind(email).first<User>();
+    ).bind(email).first();
     
     if (existingUser) {
       // 如果用户已存在且已验证，不允许重复注册
@@ -60,15 +60,15 @@ auth.post('/register', async (c) => {
           
           const resendApiKey = await c.env.DB.prepare(
             'SELECT setting_value FROM confs WHERE setting_key = ?'
-          ).bind('resend_api_key').first<any>();
+          ).bind('resend_api_key').first();
           
           const resendFromEmail = await c.env.DB.prepare(
             'SELECT setting_value FROM confs WHERE setting_key = ?'
-          ).bind('resend_from_email').first<any>();
+          ).bind('resend_from_email').first();
           
           const siteUrl = await c.env.DB.prepare(
             'SELECT setting_value FROM confs WHERE setting_key = ?'
-          ).bind('site_url').first<any>();
+          ).bind('site_url').first();
           
           if (!resendApiKey?.setting_value) {
             console.error('[重新注册] 错误: Resend API Key 未配置');
@@ -167,15 +167,15 @@ auth.post('/register', async (c) => {
         // 获取 Resend 配置
         const resendApiKey = await c.env.DB.prepare(
           'SELECT setting_value FROM confs WHERE setting_key = ?'
-        ).bind('resend_api_key').first<any>();
+        ).bind('resend_api_key').first();
         
         const resendFromEmail = await c.env.DB.prepare(
           'SELECT setting_value FROM confs WHERE setting_key = ?'
-        ).bind('resend_from_email').first<any>();
+        ).bind('resend_from_email').first();
         
         const siteUrl = await c.env.DB.prepare(
           'SELECT setting_value FROM confs WHERE setting_key = ?'
-        ).bind('site_url').first<any>();
+        ).bind('site_url').first();
         
         console.log('[邮件验证] Resend配置:', {
           hasApiKey: !!resendApiKey?.setting_value,
@@ -274,7 +274,7 @@ auth.post('/login', async (c) => {
     // 查找用户
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
-    ).bind(email).first<User>();
+    ).bind(email).first();
     
     if (!user) {
       return c.json({ error: '邮箱或密码错误' }, 401);
@@ -336,7 +336,7 @@ auth.get('/verify', async (c) => {
     // 查找用户
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE verification_token = ?'
-    ).bind(token).first<User>();
+    ).bind(token).first();
     
     if (!user) {
       return c.json({ error: '无效的验证令牌' }, 400);
@@ -382,7 +382,7 @@ auth.post('/change-password', async (c) => {
     // 查找用户
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
-    ).bind(payload.email).first<User>();
+    ).bind(payload.email).first();
     
     if (!user) {
       return c.json({ error: '用户不存在' }, 404);
@@ -424,7 +424,7 @@ auth.post('/reset-token', async (c) => {
     // 查找用户
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
-    ).bind(payload.email).first<User>();
+    ).bind(payload.email).first();
     
     if (!user) {
       return c.json({ error: '用户不存在' }, 404);
@@ -468,7 +468,7 @@ auth.post('/verify-email', async (c) => {
     // 查找具有此验证令牌的用户
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE verification_token = ? AND is_verified = 0'
-    ).bind(token).first<User>();
+    ).bind(token).first();
     
     if (!user) {
       return c.json({ error: '验证链接无效或已过期' }, 400);
@@ -519,7 +519,7 @@ auth.post('/resend-verification', async (c) => {
     // 查找用户
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
-    ).bind(email).first<User>();
+    ).bind(email).first();
     
     if (!user) {
       return c.json({ error: '用户不存在' }, 404);
@@ -540,15 +540,15 @@ auth.post('/resend-verification', async (c) => {
     // 获取邮件服务配置
     const resendApiKey = await c.env.DB.prepare(
       'SELECT setting_value FROM confs WHERE setting_key = ?'
-    ).bind('resend_api_key').first<any>();
+    ).bind('resend_api_key').first();
     
     const resendFromEmail = await c.env.DB.prepare(
       'SELECT setting_value FROM confs WHERE setting_key = ?'
-    ).bind('resend_from_email').first<any>();
+    ).bind('resend_from_email').first();
     
     const siteUrl = await c.env.DB.prepare(
       'SELECT setting_value FROM confs WHERE setting_key = ?'
-    ).bind('site_url').first<any>();
+    ).bind('site_url').first();
     
     if (!resendApiKey?.setting_value) {
       console.error('[重新发送验证] 错误: Resend API Key 未配置');
@@ -616,7 +616,7 @@ auth.post('/request-password-reset', async (c) => {
     // 查找用户
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
-    ).bind(email).first<User>();
+    ).bind(email).first();
     
     if (!user) {
       // 为了安全，即使用户不存在也返回成功消息
@@ -637,15 +637,15 @@ auth.post('/request-password-reset', async (c) => {
     // 获取邮件服务配置
     const resendApiKey = await c.env.DB.prepare(
       'SELECT setting_value FROM confs WHERE setting_key = ?'
-    ).bind('resend_api_key').first<any>();
+    ).bind('resend_api_key').first();
     
     const resendFromEmail = await c.env.DB.prepare(
       'SELECT setting_value FROM confs WHERE setting_key = ?'
-    ).bind('resend_from_email').first<any>();
+    ).bind('resend_from_email').first();
     
     const siteUrl = await c.env.DB.prepare(
       'SELECT setting_value FROM confs WHERE setting_key = ?'
-    ).bind('site_url').first<any>();
+    ).bind('site_url').first();
     
     if (!resendApiKey?.setting_value) {
       console.error('[密码重置] 错误: Resend API Key 未配置');
@@ -718,7 +718,7 @@ auth.post('/reset-password', async (c) => {
     // 查找具有此重置令牌的用户
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE verification_token = ?'
-    ).bind(token).first<User>();
+    ).bind(token).first();
     
     if (!user) {
       return c.json({ error: '重置链接无效或已过期' }, 400);
@@ -772,7 +772,7 @@ auth.get('/me', async (c) => {
     // 从数据库获取最新的用户信息
     const user = await c.env.DB.prepare(
       'SELECT id, email, is_admin, is_super_admin, is_verified, created_at FROM users WHERE email = ?'
-    ).bind(payload.email).first<User>();
+    ).bind(payload.email).first();
     
     if (!user) {
       return c.json({ error: '用户不存在' }, 404);

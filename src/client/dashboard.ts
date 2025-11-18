@@ -1,8 +1,8 @@
 // 仪表板页面脚本
 
 // 检查登录状态
-const token = localStorage.getItem('token');
-if (!token) {
+const authToken = localStorage.getItem('token');
+if (!authToken) {
   window.location.href = '/login';
 }
 
@@ -37,9 +37,9 @@ document.getElementById('logout')?.addEventListener('click', (e) => {
 // 加载用户的节点列表
 async function loadMyNodes() {
   try {
-    const response = await fetch('/api/nodes/my', {
+const response = await fetch('/api/nodes/my', {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
       },
     });
     
@@ -153,10 +153,10 @@ document.getElementById('node-form')?.addEventListener('submit', async (e) => {
   };
   
   try {
-    const response = await fetch('/api/nodes/', {
+const response = await fetch('/api/nodes/', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(formData),
@@ -214,10 +214,10 @@ document.getElementById('node-form')?.addEventListener('submit', async (e) => {
   }
   
   try {
-    const response = await fetch(`/api/nodes/${nodeId}/regenerate-token`, {
+const response = await fetch(`/api/nodes/${nodeId}/regenerate-token`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
       },
     });
     
@@ -248,10 +248,10 @@ document.getElementById('node-form')?.addEventListener('submit', async (e) => {
   }
   
   try {
-    const response = await fetch(`/api/nodes/${nodeId}`, {
+const response = await fetch(`/api/nodes/${nodeId}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
       },
     });
     

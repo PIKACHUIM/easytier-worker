@@ -184,6 +184,8 @@ window.editNode = (nodeId) => {
   document.getElementById('dashboard-node-name').value = node.node_name;
   document.getElementById('dashboard-region-type').value = node.region_type;
   document.getElementById('dashboard-region-detail').value = node.region_detail || '';
+  document.getElementById('dashboard-network-name').value = node.network_name || '';
+  document.getElementById('dashboard-network-token').value = node.network_token || '';
   document.getElementById('dashboard-max-bandwidth').value = node.max_bandwidth || '';
   document.getElementById('dashboard-max-connections').value = node.max_connections || '';
   document.getElementById('dashboard-max-traffic').value = node.max_traffic || '';
@@ -275,6 +277,8 @@ const data = {
     node_name: document.getElementById('dashboard-node-name').value,
     region_type: document.getElementById('dashboard-region-type').value,
     region_detail: document.getElementById('dashboard-region-detail').value,
+    network_name: document.getElementById('dashboard-network-name').value,
+    network_token: document.getElementById('dashboard-network-token').value,
     connections: connections,
     max_bandwidth: parseFloat(document.getElementById('dashboard-max-bandwidth').value) || 0,
     max_connections: parseInt(document.getElementById('dashboard-max-connections').value) || 0,

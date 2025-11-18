@@ -54,7 +54,7 @@ system.post('/import-schema', async (c) => {
         verification_token TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
-      // 创建节点表
+// 创建节点表
       `CREATE TABLE IF NOT EXISTS nodes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_email TEXT NOT NULL,
@@ -81,6 +81,8 @@ system.post('/import-schema', async (c) => {
         allow_relay INTEGER DEFAULT 0,
         last_report_at DATETIME,
         report_token TEXT,
+        network_name TEXT,
+        network_token TEXT,
         FOREIGN KEY (user_email) REFERENCES users(email)
       )`,
       // 创建系统设置表
@@ -195,6 +197,8 @@ CREATE TABLE IF NOT EXISTS nodes (
   allow_relay INTEGER DEFAULT 0,
   last_report_at DATETIME,
   report_token TEXT,
+  network_name TEXT,
+  network_token TEXT,
   FOREIGN KEY (user_email) REFERENCES users(email)
 );
 
@@ -237,7 +241,7 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         verification_token TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
-      // 创建节点表
+// 创建节点表
       `CREATE TABLE IF NOT EXISTS nodes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_email TEXT NOT NULL,
@@ -264,6 +268,8 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         allow_relay INTEGER DEFAULT 0,
         last_report_at DATETIME,
         report_token TEXT,
+        network_name TEXT,
+        network_token TEXT,
         FOREIGN KEY (user_email) REFERENCES users(email)
       )`,
       // 创建系统设置表

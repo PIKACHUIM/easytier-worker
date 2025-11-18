@@ -1,4 +1,5 @@
 // 仪表板页面组件
+import React from 'react';
 import WebHeader from './WebHeader';
 import WebFooter from './WebFooter';
 import NodeTable from './NodeTable';

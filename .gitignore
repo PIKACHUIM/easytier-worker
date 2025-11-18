@@ -35,3 +35,4 @@ lerna-debug.log*
 wrangler.test.jsonc
 .idea
 __pycache__
+monitor/node_monitor_config.json

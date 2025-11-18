@@ -1,10 +1,10 @@
 // 管理员页面脚本
 
 // 检查登录状态和管理员权限
-const token = localStorage.getItem('token');
+const authToken = localStorage.getItem('token');
 const userStr = localStorage.getItem('user');
 
-if (!token || !userStr) {
+if (!authToken || !userStr) {
   alert('请先登录');
   window.location.href = '/login';
 }
@@ -27,9 +27,9 @@ document.getElementById('logout')?.addEventListener('click', (e) => {
 // 加载所有节点列表
 async function loadAllNodes() {
   try {
-    const response = await fetch('/api/nodes/all', {
+const response = await fetch('/api/nodes/all', {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
       },
     });
     
@@ -102,9 +102,9 @@ function escapeHtml(text: string) {
 // 查看节点详情
 (window as any).viewNodeDetails = async (nodeId: number) => {
   try {
-    const response = await fetch(`/api/nodes/${nodeId}`, {
+const response = await fetch(`/api/nodes/${nodeId}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
       },
     });
     

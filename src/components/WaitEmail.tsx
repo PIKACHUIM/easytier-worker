@@ -1,6 +1,4 @@
-import { useState } from 'react'
-
-export default function EmailVerificationRequired() {
+export default function WaitEmail() {
   return (
     <div style={{
       minHeight: '100vh',

@@ -46,15 +46,17 @@ export interface Node {
   reset_date: string;
   connection_count: number;
   max_connections: number;
-  tags?: string;
+  tags: string;
   created_at: string;
   valid_until: string;
   status: 'online' | 'offline';
   recent_status: string;
-  notes?: string;
+  notes: string;
   allow_relay: number;
   last_report_at?: string;
-  report_token?: string; // 节点上报验证token
+  report_token: string;
+  network_name?: string;
+  network_token?: string;
 }
 
 // 数据库中的节点类型（connections 是字符串）
@@ -86,10 +88,13 @@ export interface NodeCreateRequest {
   valid_until: string;
   notes?: string;
   allow_relay: number;
+  network_name?: string;
+  network_token?: string;
 }
 
 export interface NodeUpdateRequest extends Partial<NodeCreateRequest> {
   correction_traffic?: number;
+  tier_bandwidth?: number;
 }
 
 export interface NodeReportRequest {

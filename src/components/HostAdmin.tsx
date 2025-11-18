@@ -2,7 +2,7 @@ import React from 'react';
 import WebHeader from './WebHeader';
 import WebFooter from './WebFooter';
 
-const HostAdmin: React.FC = () => {
+function HostAdmin(): React.JSX.Element {
     return (
         <div className="container">
             <WebHeader title="EasyTier 节点管理系统 - 系统设置"/>
@@ -67,7 +67,7 @@ const HostAdmin: React.FC = () => {
             {/* 添加系统设置页面的 JavaScript */}
             <script src="/js/settings.js"></script>
         </div>
-    );
-};
+)
+}
 
 export default HostAdmin;

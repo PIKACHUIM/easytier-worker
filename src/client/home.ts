@@ -112,7 +112,7 @@ async function loadPublicNodes() {
 }
 
 // HTML 转义函数
-function escapeHtml(text) {
+function escapeHtml(text: string) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;

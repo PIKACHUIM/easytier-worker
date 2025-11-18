@@ -9,9 +9,9 @@ nodes.get('/my', authMiddleware, async (c) => {
   try {
     const user = c.get('user') as JWTPayload;
     
-    const { results } = await c.env.DB.prepare(
+const { results } = await c.env.DB.prepare(
       'SELECT * FROM nodes WHERE user_email = ? ORDER BY created_at DESC'
-    ).bind(user.email).all<NodeDB>();
+    ).bind(user.email).all();
     
     // 将 connections 从字符串转换为对象
     const nodesWithParsedConnections = results.map(node => ({
@@ -31,7 +31,7 @@ nodes.get('/all', authMiddleware, adminMiddleware, async (c) => {
   try {
     const { results } = await c.env.DB.prepare(
       'SELECT * FROM nodes ORDER BY created_at DESC'
-    ).all<NodeDB>();
+).all();
     
     const nodesWithParsedConnections = results.map(node => ({
       ...node,
@@ -51,9 +51,9 @@ nodes.get('/:id', authMiddleware, async (c) => {
     const id = c.req.param('id');
     const user = c.get('user') as JWTPayload;
     
-    const node = await c.env.DB.prepare(
+const node = await c.env.DB.prepare(
       'SELECT * FROM nodes WHERE id = ?'
-    ).bind(id).first<NodeDB>();
+    ).bind(id).first();
     
     if (!node) {
       return c.json({ error: '节点不存在' }, 404);
@@ -116,8 +116,9 @@ nodes.post('/', authMiddleware, async (c) => {
       INSERT INTO nodes (
         user_email, node_name, region_type, region_detail, connections,
         tier_bandwidth, max_bandwidth, max_traffic, reset_cycle, reset_date,
-        max_connections, tags, valid_until, notes, allow_relay, report_token
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        max_connections, tags, valid_until, notes, allow_relay, report_token,
+        network_name, network_token
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       user.email,
       data.node_name,
@@ -134,7 +135,9 @@ nodes.post('/', authMiddleware, async (c) => {
       data.valid_until,
       data.notes || '',
       data.allow_relay,
-      reportToken
+      reportToken,
+      data.network_name || '',
+      data.network_token || ''
     ).run();
     
     return c.json({ 
@@ -155,9 +158,9 @@ nodes.put('/:id', authMiddleware, async (c) => {
     const data: NodeUpdateRequest = await c.req.json();
     
     // 检查节点是否存在
-    const node = await c.env.DB.prepare(
+const node = await c.env.DB.prepare(
       'SELECT * FROM nodes WHERE id = ?'
-    ).bind(id).first<NodeDB>();
+    ).bind(id).first();
     
     if (!node) {
       return c.json({ error: '节点不存在' }, 404);
@@ -237,9 +240,17 @@ nodes.put('/:id', authMiddleware, async (c) => {
       updates.push('notes = ?');
       values.push(data.notes);
     }
-    if (data.allow_relay !== undefined) {
+if (data.allow_relay !== undefined) {
       updates.push('allow_relay = ?');
       values.push(data.allow_relay);
+    }
+    if (data.network_name !== undefined) {
+      updates.push('network_name = ?');
+      values.push(data.network_name);
+    }
+    if (data.network_token !== undefined) {
+      updates.push('network_token = ?');
+      values.push(data.network_token);
     }
     if (data.correction_traffic !== undefined && user.is_admin) {
       // 只有管理员可以修改修正流量
@@ -274,9 +285,9 @@ nodes.post('/:id/regenerate-token', authMiddleware, async (c) => {
     const user = c.get('user') as JWTPayload;
     
     // 检查节点是否存在
-    const node = await c.env.DB.prepare(
+const node = await c.env.DB.prepare(
       'SELECT * FROM nodes WHERE id = ?'
-    ).bind(id).first<NodeDB>();
+    ).bind(id).first();
     
     if (!node) {
       return c.json({ error: '节点不存在' }, 404);
@@ -314,9 +325,9 @@ nodes.delete('/:id', authMiddleware, async (c) => {
     const user = c.get('user') as JWTPayload;
     
     // 检查节点是否存在
-    const node = await c.env.DB.prepare(
+const node = await c.env.DB.prepare(
       'SELECT * FROM nodes WHERE id = ?'
-    ).bind(id).first<NodeDB>();
+    ).bind(id).first();
     
     if (!node) {
       return c.json({ error: '节点不存在' }, 404);

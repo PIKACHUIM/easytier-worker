@@ -3,11 +3,11 @@ import WebFooter from './WebFooter';
 
 function HostSetup() {
     return (
-        <div class="container">
+<div className="container">
             <WebHeader title="EasyTier 节点管理系统 - 系统初始化"/>
-            <div class="auth-form">
+<div className="auth-form">
                 <h1>系统初始化</h1>
-                <p class="info">首次使用需要初始化系统并创建超级管理员账户</p>
+<p className="info">首次使用需要初始化系统并创建超级管理员账户</p>
 
                 <div style={{background: '#f8f9fa', padding: '15px', borderRadius: '5px', marginBottom: '20px'}}>
                     <h3 style={{marginTop: 0}}>初始化说明：</h3>
@@ -22,7 +22,7 @@ function HostSetup() {
                 </div>
 
                 <form id="init-form">
-                    <div class="form-group">
+<div className="form-group">
                         <label for="jwt-secret">JWT 密钥</label>
                         <input
                             type="password"
@@ -34,15 +34,15 @@ function HostSetup() {
                         <small>请输入 wrangler.jsonc 中配置的 JWT_SECRET</small>
                     </div>
 
-                    <div class="form-group">
+<div className="form-group">
                         <label for="email">管理员邮箱</label>
                         <input type="email" id="email" name="email" required/>
                     </div>
-                    <div class="form-group">
+<div className="form-group">
                         <label for="password">密码</label>
                         <input type="password" id="password" name="password" required minLength={6}/>
                     </div>
-                    <div class="form-group">
+<div className="form-group">
                         <label for="confirm-password">确认密码</label>
                         <input type="password" id="confirm-password" name="confirm-password" required/>
                     </div>

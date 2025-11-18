@@ -13,7 +13,7 @@ import UserNodes from './components/UserNodes'
 import UserToken from './components/UserToken'
 import UserEmail from './components/UserEmail'
 import UserReset from './components/UserReset'
-import EmailVerificationRequired from './components/EmailVerificationRequired'
+import WaitEmail from './components/WaitEmail'
 import HostNodes from './components/HostNodes'
 import HostSetup from './components/HostSetup'
 import HostAdmin from './components/HostAdmin'
@@ -69,7 +69,7 @@ app.get('/verify', (c) => {
 })
 
 app.get('/verify-required', (c) => {
-    return c.render(<EmailVerificationRequired/>)
+    return c.render(<WaitEmail/>)
 })
 
 app.get('/reset-password', (c) => {

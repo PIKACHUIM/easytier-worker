@@ -201,6 +201,8 @@ window.editAdminNode = (nodeId) => {
   document.getElementById('admin-node-name').value = node.node_name;
   document.getElementById('admin-region-type').value = node.region_type;
   document.getElementById('admin-region-detail').value = node.region_detail || '';
+  document.getElementById('admin-network-name').value = node.network_name || '';
+  document.getElementById('admin-network-token').value = node.network_token || '';
   document.getElementById('admin-max-bandwidth').value = node.max_bandwidth || '';
   document.getElementById('admin-max-connections').value = node.max_connections || '';
   document.getElementById('admin-max-traffic').value = node.max_traffic || '';
@@ -292,6 +294,8 @@ const data = {
     node_name: document.getElementById('admin-node-name').value,
     region_type: document.getElementById('admin-region-type').value,
     region_detail: document.getElementById('admin-region-detail').value,
+    network_name: document.getElementById('admin-network-name').value,
+    network_token: document.getElementById('admin-network-token').value,
     connections: connections,
     max_bandwidth: parseFloat(document.getElementById('admin-max-bandwidth').value) || 0,
     max_connections: parseInt(document.getElementById('admin-max-connections').value) || 0,

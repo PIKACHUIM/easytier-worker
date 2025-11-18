@@ -30,7 +30,7 @@ function NodeTable({
             <div className="nodes-table-container">
                 <table className="nodes-table" id={tableId}>
                     <thead>
-                    <tr>
+<tr>
                         <th style={{textAlign: 'center', 'min-width': '100px'}}>节点名称</th>
                         <th style={{textAlign: 'center', 'min-width': '70px'}}>状态</th>
                         <th style={{textAlign: 'center', 'min-width': '120px'}}>地域</th>
