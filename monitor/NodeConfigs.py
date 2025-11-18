@@ -94,3 +94,12 @@ class NodeMonitorConfig:
     def get_log_level(self) -> str:
         """获取日志级别"""
         return self.config.get("log_level", "INFO")
+
+    def get_expected_nodes(self) -> list:
+        """
+        获取期望的节点名称列表
+        
+        Returns:
+            期望的节点名称列表
+        """
+        return self.config.get("expected_nodes", [])

@@ -83,8 +83,8 @@ def main():
         return 1
     finally:
         # 确保清理资源
-        if monitor:
-            monitor._cleanup_all_processes()
+        # 不再需要调用_cleanup_all_processes方法
+        pass
 
 
 if __name__ == '__main__':
