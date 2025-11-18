@@ -6,10 +6,10 @@ import NodeEdits from './NodeEdits';
 
 function HostNodes() {
     return (
-        <div class="container">
+<div className="container">
             <WebHeader title="EasyTier 节点管理系统 - 管理面板"/>
 
-            <main class="main">
+<main className="main">
                 <div className="dashboard-actions">
                     <button id="add-node-btn" className="btn-primary">添加节点</button>
                 </div>

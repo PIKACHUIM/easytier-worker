@@ -164,11 +164,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
 .stat-trend-side canvas {
   max-width: 100%;
-  height: auto;
+  width: 100% !important;
+  height: auto !important;
+  display: block;
 }
 
 /* 原有的水平布局样式（保留兼容性） */

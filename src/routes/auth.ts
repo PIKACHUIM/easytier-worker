@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import {Context, Hono} from 'hono';
 import type { Env, User, RegisterRequest, LoginRequest } from '../types';
 import { hashPassword, verifyPassword, createJWT, verifyJWT, generateToken, sendEmail } from '../utils';
 

@@ -18,6 +18,9 @@
     "JWT_SECRET": "********************************",
     "ENABLE_EMAIL_VERIFICATION": "false"
   },
+  "triggers": {
+    "crons": ["*/10 * * * *"]
+  },
   "observability": {
     "enabled": false
   }

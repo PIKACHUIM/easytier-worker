@@ -3,9 +3,9 @@ import WebFooter from './WebFooter';
 
 function UserLogin() {
     return (
-        <div class="container">
+<div className="container">
             <WebHeader title="EasyTier 节点管理系统 - 用户登录"/>
-            <div class="auth-form">
+<div className="auth-form">
                 <h1>登录</h1>
                 <div id="login-message" style="display: none;"></div>
                 <form id="login-form">

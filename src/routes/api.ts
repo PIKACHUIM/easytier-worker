@@ -133,7 +133,7 @@ api.use('/query', async (c) => {
             const region = c.req.query('region');
             const priority = c.req.query('priority');
             const relayOnly = c.req.query('relay_only');
-            
+
             // 只有当参数存在时才设置，否则保持undefined
             data = {
                 region: region ? (region as 'domestic' | 'overseas' | 'all') : undefined,
@@ -151,7 +151,7 @@ api.use('/query', async (c) => {
             }
         }
 
-console.log(data);
+        console.log(data);
         // 构建查询条件
         let query = 'SELECT * FROM nodes WHERE status = ? AND valid_until > ?';
         const params: any[] = ['online', new Date().toISOString()];
@@ -167,7 +167,7 @@ console.log(data);
             query += ' AND allow_relay = 1';
         }
 
-const {results} = await c.env.DB.prepare(query).bind(...params).all();
+        const {results} = await c.env.DB.prepare(query).bind(...params).all();
 
         console.log(`查询到 ${results.length} 个符合条件的节点`);
 
@@ -358,7 +358,7 @@ api.get('/stats', async (c) => {
 });
 
 // 获取统计历史数据
-async function getStatsHistory(db: NodeDB) {
+async function getStatsHistory(db: any) {
     try {
         const onlineNodesHistory = await db.prepare(
             'SELECT setting_value FROM confs WHERE setting_key = ?'
@@ -372,68 +372,74 @@ async function getStatsHistory(db: NodeDB) {
             'SELECT setting_value FROM confs WHERE setting_key = ?'
         ).bind('stats_bandwidth_history').first();
 
+        const tierbandHistory = await db.prepare(
+            'SELECT setting_value FROM confs WHERE setting_key = ?'
+        ).bind('stats_tierband_history').first();
+
         return {
             online_nodes: JSON.parse(onlineNodesHistory?.setting_value || '[]'),
             connections: JSON.parse(connectionsHistory?.setting_value || '[]'),
-            bandwidth: JSON.parse(bandwidthHistory?.setting_value || '[]')
+            bandwidth: JSON.parse(bandwidthHistory?.setting_value || '[]'),
+            tierband: JSON.parse(tierbandHistory?.setting_value || '[]')
         };
     } catch (error) {
         console.error('获取统计历史数据错误:', error);
         return {
             online_nodes: [],
             connections: [],
-            bandwidth: []
+            bandwidth: [],
+            tierband: []
         };
     }
 }
 
 // 更新统计历史数据
-async function updateStatsHistory(db: NodeDB, onlineNodes: number, connections: number, bandwidth: number) {
+async function updateStatsHistory(db: any, onlineNodes: number, connections: number, bandwidth: number) {
     try {
         const now = new Date();
         const timestamp = now.toISOString();
-        
+
         // 获取当前历史数据
         const currentHistory = await getStatsHistory(db);
-        
+
         // 添加新数据点（144个点 = 24小时，每10分钟一个点）
         const maxPoints = 144;
-        
+
         // 更新在线节点历史
         const newOnlineNodesHistory = [
             ...currentHistory.online_nodes.slice(-(maxPoints - 1)),
-            { value: onlineNodes, timestamp }
+            {value: onlineNodes, timestamp}
         ];
-        
+
         // 更新连接数历史
         const newConnectionsHistory = [
             ...currentHistory.connections.slice(-(maxPoints - 1)),
-            { value: connections, timestamp }
+            {value: connections, timestamp}
         ];
-        
+
         // 更新带宽历史
         const newBandwidthHistory = [
             ...currentHistory.bandwidth.slice(-(maxPoints - 1)),
-            { value: bandwidth, timestamp }
+            {value: bandwidth, timestamp}
         ];
-        
+
         // 更新数据库
         await db.prepare(
             'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
         ).bind(JSON.stringify(newOnlineNodesHistory), timestamp, 'stats_online_nodes_history').run();
-        
+
         await db.prepare(
             'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
         ).bind(JSON.stringify(newConnectionsHistory), timestamp, 'stats_connections_history').run();
-        
+
         await db.prepare(
             'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
         ).bind(JSON.stringify(newBandwidthHistory), timestamp, 'stats_bandwidth_history').run();
-        
+
         await db.prepare(
             'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
         ).bind(timestamp, timestamp, 'stats_last_update').run();
-        
+
         return true;
     } catch (error) {
         console.error('更新统计历史数据错误:', error);

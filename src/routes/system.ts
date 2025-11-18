@@ -108,6 +108,7 @@ system.post('/import-schema', async (c) => {
         ('stats_online_nodes_history', '[]', '在线节点历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
         ('stats_connections_history', '[]', '连接数历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
         ('stats_bandwidth_history', '[]', '带宽使用历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+        ('stats_tierband_history', '[]', '阶梯带宽历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
         ('stats_last_update', '', '统计数据最后更新时间')`
     ];
     
@@ -290,6 +291,7 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         ('stats_online_nodes_history', '[]', '在线节点历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
         ('stats_connections_history', '[]', '连接数历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
         ('stats_bandwidth_history', '[]', '带宽使用历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+        ('stats_tierband_history', '[]', '阶梯带宽历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
         ('stats_last_update', '', '统计数据最后更新时间')`
     ];
     
@@ -652,19 +654,25 @@ system.post('/cron/update-stats', async (c) => {
       'SELECT SUM(current_bandwidth) as bandwidth_total FROM nodes'
     ).first();
 
+    const tierbandSums = await c.env.DB.prepare(
+      'SELECT SUM(tier_bandwidth) as tierband_total FROM nodes'
+    ).first();
+
     const onlineNodesCount = onlineNodes?.count || 0;
     const connectionsCount = connectionsSums?.connection_total || 0;
     const bandwidthTotal = bandwidthSums?.bandwidth_total || 0;
+    const tierbandTotal = tierbandSums?.tierband_total || 0;
 
     // 3. 更新历史统计数据
     const historyUpdated = await updateStatsHistory(
       c.env.DB,
       onlineNodesCount,
       connectionsCount,
-      bandwidthTotal
+      bandwidthTotal,
+      tierbandTotal
     );
 
-    console.log(`[定时任务] 统计数据更新完成: 在线节点=${onlineNodesCount}, 连接数=${connectionsCount}, 带宽=${bandwidthTotal}Mbps`);
+    console.log(`[定时任务] 统计数据更新完成: 在线节点=${onlineNodesCount}, 连接数=${connectionsCount}, 带宽=${bandwidthTotal}Mbps, 阶梯带宽=${tierbandTotal}Mbps`);
 
     return c.json({
       message: '统计数据更新成功',
@@ -673,7 +681,8 @@ system.post('/cron/update-stats', async (c) => {
         total_nodes: totalNodes?.count || 0,
         online_nodes: onlineNodesCount,
         connections: connectionsCount,
-        bandwidth: bandwidthTotal
+        bandwidth: bandwidthTotal,
+        tierband: tierbandTotal
       },
       history_updated: historyUpdated
     });
@@ -698,23 +707,29 @@ async function getStatsHistory(db: any) {
       'SELECT setting_value FROM confs WHERE setting_key = ?'
     ).bind('stats_bandwidth_history').first();
 
+    const tierbandHistory = await db.prepare(
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('stats_tierband_history').first();
+
     return {
       online_nodes: JSON.parse(onlineNodesHistory?.setting_value || '[]'),
       connections: JSON.parse(connectionsHistory?.setting_value || '[]'),
-      bandwidth: JSON.parse(bandwidthHistory?.setting_value || '[]')
+      bandwidth: JSON.parse(bandwidthHistory?.setting_value || '[]'),
+      tierband: JSON.parse(tierbandHistory?.setting_value || '[]')
     };
   } catch (error) {
     console.error('获取统计历史数据错误:', error);
     return {
       online_nodes: [],
       connections: [],
-      bandwidth: []
+      bandwidth: [],
+      tierband: []
     };
   }
 }
 
 // 更新统计历史数据
-async function updateStatsHistory(db: any, onlineNodes: number, connections: number, bandwidth: number) {
+async function updateStatsHistory(db: any, onlineNodes: number, connections: number, bandwidth: number, tierband: number) {
   try {
     const now = new Date();
     const timestamp = now.toISOString();
@@ -743,6 +758,12 @@ async function updateStatsHistory(db: any, onlineNodes: number, connections: num
       { value: bandwidth, timestamp }
     ];
     
+    // 更新阶梯带宽历史
+    const newTierbandHistory = [
+      ...currentHistory.tierband.slice(-(maxPoints - 1)),
+      { value: tierband, timestamp }
+    ];
+    
     // 更新数据库
     await db.prepare(
       'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
@@ -755,6 +776,10 @@ async function updateStatsHistory(db: any, onlineNodes: number, connections: num
     await db.prepare(
       'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
     ).bind(JSON.stringify(newBandwidthHistory), timestamp, 'stats_bandwidth_history').run();
+    
+    await db.prepare(
+      'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
+    ).bind(JSON.stringify(newTierbandHistory), timestamp, 'stats_tierband_history').run();
     
     await db.prepare(
       'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'

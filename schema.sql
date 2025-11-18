@@ -67,8 +67,5 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
   ('stats_online_nodes_history', '[]', '在线节点历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
   ('stats_connections_history', '[]', '连接数历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
   ('stats_bandwidth_history', '[]', '带宽使用历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
-  ('stats_last_update', '', '统计数据最后更新时间');
-  ('stats_online_nodes_history', '[]', '在线节点历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
-  ('stats_connections_history', '[]', '连接数历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
-  ('stats_bandwidth_history', '[]', '带宽使用历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+  ('stats_tierband_history', '[]', '阶梯带宽历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
   ('stats_last_update', '', '统计数据最后更新时间');
