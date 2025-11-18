@@ -4,10 +4,10 @@ import WebFooter from './WebFooter';
 
 function UserToken() {
   return (
-    <div class="container">
+<div className="container">
       <WebHeader title="EasyTier 节点管理系统 - 用户管理" />
       
-      <main class="main">
+<main className="main">
         <div class="user-token-container" style="max-width: 800px; margin: 0 auto;">
           <h2 style="margin-bottom: 30px; color: #333;">用户管理</h2>
           

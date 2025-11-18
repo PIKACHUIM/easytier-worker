@@ -430,14 +430,14 @@ class NodeMonitor:
         if not report_token:
             logger.error(f"节点 {node_name} 没有配置上报token")
             return False
-        
+        import random
         report_data = {
             "node_name": node_name,
             "email": user_email,
             "token": report_token,
-            "current_bandwidth": 100,  # 固定为0，如用户要求
-            "reported_traffic": 100,   # 固定为0，如用户要求
-            "connection_count": 100,   # 固定为0，如用户要求
+            "current_bandwidth": random.randint(0, 100),  # 固定为0，如用户要求
+            "reported_traffic": random.randint(0, 100),   # 固定为0，如用户要求
+            "connection_count": random.randint(0, 100),   # 固定为0，如用户要求
             "status": status
         }
         

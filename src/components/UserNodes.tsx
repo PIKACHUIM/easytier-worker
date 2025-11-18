@@ -6,13 +6,13 @@ import NodeEdits from './NodeEdits';
 
 function UserNodes() {
   return (
-    <div class="container">
+<div className="container">
       <WebHeader title="EasyTier 节点管理系统 - 我的节点" />
       
-      <main class="main">
-        <div class="dashboard-header">
-          <div class="dashboard-actions" style="display: flex; justify-content: space-between; align-items: center;">
-            <button id="add-node-btn" class="btn-primary">添加节点</button>
+<main className="main">
+<div className="dashboard-header">
+<div className="dashboard-actions" style="display: flex; justify-content: space-between; align-items: center;">
+<button id="add-node-btn" className="btn-primary">添加节点</button>
           </div>
         </div>
         

@@ -1,8 +1,8 @@
 // 统一标题栏组件
 function WebHeader({title}: { title: string }) {
     return (
-        <header class="header">
-            <div class="header-content">
+<header className="header">
+<div className="header-content">
                 <h1>{title}</h1>
                 {/*<div class="user-info" id="user-info">*/}
                 {/*  <span id="user-info-text">加载中...</span>*/}
