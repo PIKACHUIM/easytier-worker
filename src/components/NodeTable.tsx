@@ -13,24 +13,7 @@ function NodeTable({
                        containerId = 'nodes-container',
                        tableId = 'nodes-table'
                    }: NodesTableProps) {
-    const getTableColumns = () => {
-        return [
-            {key: 'name', label: '节点名称'},
-            {key: 'status', label: '状态'},
-            {key: 'region', label: '地域'},
-            {key: 'bandwidth', label: '带宽'},
-            {key: 'connections', label: '连接数'},
-            {key: 'traffic', label: '流量'},
-            {key: 'connection_info', label: '连接信息'},
-            {key: 'allow_relay', label: '允许中转'},
-            {key: 'tags', label: '标签'},
-            {key: 'notes', label: '备注'},
-            {key: 'actions', label: '操作'}
-        ];
-    };
-
-    const columns = getTableColumns();
-    const colSpan = columns.length;
+    const colSpan = 11;
 
     return (
         <>
@@ -48,9 +31,17 @@ function NodeTable({
                 <table className="nodes-table" id={tableId}>
                     <thead>
                     <tr>
-                        {columns.map(column => (
-                            <th key={column.key}>{column.label}</th>
-                        ))}
+                        <th style={{textAlign: 'center', 'min-width': '100px'}}>节点名称</th>
+                        <th style={{textAlign: 'center', 'min-width': '70px'}}>状态</th>
+                        <th style={{textAlign: 'center', 'min-width': '120px'}}>地域</th>
+                        <th style={{textAlign: 'center', 'min-width': '150px'}}>带宽</th>
+                        <th style={{textAlign: 'center', 'min-width': '150px'}}>连接数</th>
+                        <th style={{textAlign: 'center', 'min-width': '150px'}}>流量</th>
+                        <th style={{textAlign: 'center', 'min-width': '150px'}}>连接信息</th>
+                        <th style={{textAlign: 'center', 'min-width': '70px'}}>中转</th>
+                        <th style={{textAlign: 'center', 'min-width': '70px'}}>标签</th>
+                        <th style={{textAlign: 'center', width: '100%'}}>备注</th>
+                        <th style={{textAlign: 'center', 'min-width': '200px'}}>操作</th>
                     </tr>
                     </thead>
                     <tbody id={containerId}>
@@ -61,7 +52,7 @@ function NodeTable({
                 </table>
             </div>
 
-{/* 节点详情模态框 - 根据模式生成不同的ID */}
+            {/* 节点详情模态框 - 根据模式生成不同的ID */}
             {mode === 'home' && (
                 <div id={`home-node-detail-modal`} className="modal" style={{display: 'none'}}>
                     <div className="modal-content" style={{maxWidth: '900px'}}>
@@ -71,7 +62,7 @@ function NodeTable({
                     </div>
                 </div>
             )}
-            
+
             {mode === 'dashboard' && (
                 <div id={`dashboard-node-detail-modal`} className="modal" style={{display: 'none'}}>
                     <div className="modal-content" style={{maxWidth: '900px'}}>
@@ -81,7 +72,7 @@ function NodeTable({
                     </div>
                 </div>
             )}
-            
+
             {mode === 'admin' && (
                 <div id={`admin-node-detail-modal`} className="modal" style={{display: 'none'}}>
                     <div className="modal-content" style={{maxWidth: '900px'}}>

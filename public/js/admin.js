@@ -1,31 +1,53 @@
 // 管理员页面JavaScript代码
 
 // 检查用户登录状态和权限
-function checkAdminAuth() {
+async function checkAdminAuth() {
   const token = localStorage.getItem('token');
   if (!token) {
     window.location.href = '/login';
     return false;
   }
   
-  const userStr = localStorage.getItem('user');
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr);
-      if (!user.is_admin && !user.is_super_admin) {
-        alert('无权限访问管理员页面');
-        window.location.href = '/dashboard';
+  try {
+    // 调用API获取最新的用户信息
+    const response = await fetch('/api/auth/me', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        alert('登录已过期，请重新登录');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
         return false;
       }
-      return user;
-    } catch (error) {
-      console.error('解析用户信息失败:', error);
+      throw new Error('获取用户信息失败');
     }
+    
+    const user = await response.json();
+    
+    // 更新localStorage中的用户信息
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    // 检查管理员权限
+    if (!user.is_admin && !user.is_super_admin) {
+      alert('您的管理员权限已被撤销，无法访问此页面');
+      window.location.href = '/dashboard';
+      return false;
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('验证用户权限失败:', error);
+    alert('验证权限失败，请重新登录');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+    return false;
   }
-  
-  alert('用户信息异常，请重新登录');
-  window.location.href = '/login';
-  return false;
 }
 
 // 管理员连接方式管理
@@ -322,11 +344,15 @@ if (response.ok) {
 };
 
 // 页面初始化
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.title = 'EasyTier 节点管理系统 - 管理员面板';
   
-  const user = checkAdminAuth();
+  const user = await checkAdminAuth();
   if (!user) return;
+  
+  // 显示导航链接
+  const tokenLink = document.getElementById('token-link');
+  if (tokenLink) tokenLink.style.display = 'inline';
   
   const userInfoElement = document.getElementById('user-info-text');
   if (userInfoElement) {

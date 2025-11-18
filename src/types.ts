@@ -1,3 +1,5 @@
+import type { Context } from 'hono'
+
 // 用户类型
 export interface User {
   id: number;
@@ -144,3 +146,11 @@ export interface UserManageRequest {
   email: string;
   is_admin: boolean;
 }
+
+// Hono Context 扩展类型
+export type AppContext = Context<{
+  Bindings: Env;
+  Variables: {
+    user: JWTPayload;
+  };
+}>

@@ -20,6 +20,7 @@ function UserLogin() {
                     <button type="submit">登录</button>
                 </form>
                 <p>还没有账户？<a href="/register">立即注册</a></p>
+                <p><a href="/reset-password">忘记密码？</a></p>
             </div>
             <WebFooter title="用户登录页面"/>
             <script src="/js/login.js"></script>

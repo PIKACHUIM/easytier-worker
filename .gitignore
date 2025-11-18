@@ -34,3 +34,4 @@ lerna-debug.log*
 .DS_Store
 wrangler.test.jsonc
 .idea
+__pycache__

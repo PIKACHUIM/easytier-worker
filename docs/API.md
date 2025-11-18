@@ -694,7 +694,7 @@ curl -X POST https://your-domain.workers.dev/api/query \
 **POST** `/api/system/initialize`
 
 使用 JWT 密钥验证并初始化系统。此接口会自动完成以下操作：
-1. 导入数据库表结构（users、nodes、system_settings）
+1. 导入数据库表结构（users、nodes、confs）
 2. 创建超级管理员账户
 3. 完成系统初始化配置
 
@@ -723,7 +723,7 @@ curl -X POST https://your-domain.workers.dev/api/query \
 
 **注意事项**:
 1. 系统初始化只能执行一次
-2. 初始化检测基于 `system_settings` 表是否存在
+2. 初始化检测基于 `confs` 表是否存在
 3. 如果数据库未初始化，访问其他页面会自动跳转到初始化页面
 4. 初始化完成后会自动跳转到登录页面
 

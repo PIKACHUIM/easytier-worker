@@ -6,6 +6,8 @@ document.title = 'EasyTier 节点管理系统 - 我的节点';
 
 let currentEditingNodeId = null;
 
+
+
 // 连接方式管理
 window.connections = [];
 
@@ -87,6 +89,8 @@ function checkAdminAccess() {
   if (userStr) {
     try {
       const user = JSON.parse(userStr);
+      const tokenLink = document.getElementById('token-link');
+      if (tokenLink) tokenLink.style.display = 'inline';
       if (user.is_admin || user.is_super_admin) {
         const adminLink = document.getElementById('admin-link');
         const settingsLink = document.getElementById('settings-link');
@@ -334,6 +338,9 @@ function checkUserPermissions() {
   }
   return null;
 }
+
+
+
 
 // 页面初始化
 document.addEventListener('DOMContentLoaded', () => {

@@ -26,6 +26,7 @@ async function checkUserStatus() {
       const loginLink = document.getElementById('login-link');
       if (loginLink) loginLink.style.display = 'none';
       document.getElementById('dashboard-link').style.display = 'inline';
+      document.getElementById('token-link').style.display = 'inline';
       document.getElementById('logout-link').style.display = 'inline';
       if (user.is_admin || user.is_super_admin) {
         document.getElementById('admin-link').style.display = 'inline';
@@ -50,7 +51,7 @@ async function checkUserStatus() {
   }
 }
 
-// 加载首页统计信息（环形图百分比展示）
+// 加载首页统计信息（新布局：统计卡片+饼图+折线图）
 async function loadHomeStats() {
   const nodesTextEl = document.getElementById('nodes-text');
   const connectionsTextEl = document.getElementById('connections-text');
@@ -62,24 +63,28 @@ async function loadHomeStats() {
     const totalNodes = Number(data.total_nodes || 0);
     const onlineNodesCount = Number(data.online_nodes || 0);
 
-    // 节点统计：在线节点/总节点
-    const nodesPercentage = totalNodes > 0 ? (onlineNodesCount / totalNodes) * 100 : 0;
+    // 更新统计卡片
     if (nodesTextEl) nodesTextEl.textContent = onlineNodesCount + '/' + totalNodes;
-    upsertDonut('nodesChart', 'nodes-chart', onlineNodesCount, totalNodes);
-
-    // 连接统计：当前连接/最大连接
+    
     const currentConnections = Number(data.connection_count_total || 0);
     const maxConnections = Number(data.max_connections_total || 0);
-    const connectionsPercentage = maxConnections > 0 ? (currentConnections / maxConnections) * 100 : 0;
     if (connectionsTextEl) connectionsTextEl.textContent = currentConnections + '/' + maxConnections;
-    upsertDonut('connectionsChart', 'connections-chart', currentConnections, maxConnections);
 
-    // 带宽统计：当前带宽/最大带宽
     const currentBandwidth = Number(data.current_bandwidth_total || 0);
     const maxBandwidth = Number(data.max_bandwidth_total || 0);
-    const bandwidthPercentage = maxBandwidth > 0 ? (currentBandwidth / maxBandwidth) * 100 : 0;
-    if (bandwidthTextEl) bandwidthTextEl.textContent = currentBandwidth.toFixed(1) + '/' + maxBandwidth.toFixed(1);
+    if (bandwidthTextEl) bandwidthTextEl.textContent = currentBandwidth.toFixed(1) + '/' + maxBandwidth.toFixed(1) + ' Mbps';
+
+    // 更新饼图
+    upsertDonut('nodesChart', 'nodes-chart', onlineNodesCount, totalNodes);
+    upsertDonut('connectionsChart', 'connections-chart', currentConnections, maxConnections);
     upsertDonut('bandwidthChart', 'bandwidth-chart', currentBandwidth, maxBandwidth);
+
+    // 更新三个独立的趋势图
+    if (data.history) {
+      updateNodesTrendChart(data.history.online_nodes || []);
+      updateConnectionsTrendChart(data.history.connections || []);
+      updateBandwidthTrendChart(data.history.bandwidth || []);
+    }
   } catch (error) {
     console.error('加载首页统计失败:', error);
     if (nodesTextEl) nodesTextEl.textContent = '-/-';
@@ -100,12 +105,165 @@ function upsertDonut(chartKey, canvasId, value, total) {
     chart = new Chart(ctx, {
       type: 'doughnut',
       data: { datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-      options: { plugins: { legend: { display: false }, tooltip: { enabled: false } }, cutout: '70%' }
+      options: { 
+        plugins: { 
+          legend: { display: false }, 
+          tooltip: { enabled: false } 
+        }, 
+        cutout: '70%',
+        responsive: false,
+        maintainAspectRatio: false,
+        animation: {
+          duration: 750,
+          easing: 'easeInOutQuart'
+        }
+      }
     });
     window[chartKey] = chart;
   } else {
     chart.data.datasets[0].data = data;
     chart.update();
+  }
+}
+
+// 生成时间标签（最近24小时）
+function generateTimeLabels() {
+  const maxPoints = 144; // 24小时，每10分钟一个点
+  const labels = [];
+  const now = new Date();
+  for (let i = maxPoints - 1; i >= 0; i--) {
+    const time = new Date(now.getTime() - i * 10 * 60 * 1000);
+    labels.push(time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+  }
+  return labels;
+}
+
+// 处理历史数据
+function processHistoryData(historyData) {
+  const maxPoints = 144;
+  const values = [];
+  for (let i = 0; i < maxPoints; i++) {
+    const point = historyData[i];
+    values.push(point ? point.value : 0);
+  }
+  return values;
+}
+
+// 创建小型趋势图的通用配置
+function createMiniTrendChart(canvasId, data, color, label) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !window.Chart) return null;
+
+  const labels = generateTimeLabels();
+  
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: data,
+        borderColor: color,
+        backgroundColor: color + '20',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 3
+      }]
+    },
+    options: {
+      responsive: false,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: 'white',
+          bodyColor: 'white',
+          borderColor: color,
+          borderWidth: 1,
+          cornerRadius: 4,
+          displayColors: false,
+          callbacks: {
+            title: function(context) {
+              return context[0].label;
+            },
+            label: function(context) {
+              const value = context.parsed.y;
+              if (label.includes('带宽')) {
+                return value.toFixed(1) + ' Mbps';
+              }
+              return value.toString();
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: false
+        },
+        y: {
+          display: false,
+          beginAtZero: true
+        }
+      },
+      elements: {
+        point: {
+          hoverBackgroundColor: '#fff',
+          hoverBorderWidth: 2
+        }
+      },
+      animation: {
+        duration: 750,
+        easing: 'easeInOutQuart'
+      }
+    }
+  });
+}
+
+// 更新在线节点趋势图
+function updateNodesTrendChart(historyData) {
+  const data = processHistoryData(historyData);
+  let chart = window.nodesTrendChart;
+  
+  if (!chart) {
+    chart = createMiniTrendChart('nodes-trend-chart', data, '#667eea', '在线节点');
+    window.nodesTrendChart = chart;
+  } else {
+    chart.data.labels = generateTimeLabels();
+    chart.data.datasets[0].data = data;
+    chart.update('none');
+  }
+}
+
+// 更新连接数趋势图
+function updateConnectionsTrendChart(historyData) {
+  const data = processHistoryData(historyData);
+  let chart = window.connectionsTrendChart;
+  
+  if (!chart) {
+    chart = createMiniTrendChart('connections-trend-chart', data, '#764ba2', '连接数');
+    window.connectionsTrendChart = chart;
+  } else {
+    chart.data.labels = generateTimeLabels();
+    chart.data.datasets[0].data = data;
+    chart.update('none');
+  }
+}
+
+// 更新带宽趋势图
+function updateBandwidthTrendChart(historyData) {
+  const data = processHistoryData(historyData);
+  let chart = window.bandwidthTrendChart;
+  
+  if (!chart) {
+    chart = createMiniTrendChart('bandwidth-trend-chart', data, '#28a745', '带宽使用');
+    window.bandwidthTrendChart = chart;
+  } else {
+    chart.data.labels = generateTimeLabels();
+    chart.data.datasets[0].data = data;
+    chart.update('none');
   }
 }
 

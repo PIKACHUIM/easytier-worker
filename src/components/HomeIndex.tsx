@@ -14,34 +14,60 @@ function HomeIndex() {
                     <h2>欢迎使用 EasyTier 节点管理系统</h2>
                     <p>高效管理您的 EasyTier 节点，提供稳定的网络服务</p>
                 </section>
-                <section class="stats" id="stats">
-                    <div class="stat-card donut-card">
-                        <div class="donut-container"
-                             style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                            <canvas id="nodes-chart" width="120" height="120"></canvas>
-                            <div class="chart-text"><span id="nodes-text">-/-</span><span
-                                class="donut-label">在线节点</span></div>
+                <section class="stats-dashboard" id="stats">
+                    <div class="stats-grid">
+                        {/* 在线节点卡片 */}
+                        <div class="stat-card-item">
+                            <div class="stat-card-content-vertical">
+                                <div class="stat-chart-top">
+                                    <canvas id="nodes-chart" width="120" height="120"></canvas>
+                                </div>
+                                <div class="stat-info-bottom">
+                                    <h3>在线节点</h3>
+                                    <div class="stat-value" id="nodes-text">-/-</div>
+                                </div>
+                            </div>
+                            <div class="stat-trend-side">
+                                <canvas id="nodes-trend-chart" width="300" height="160"></canvas>
+                            </div>
                         </div>
-                    </div>
-                    <div class="stat-card donut-card">
-                        <div class="donut-container"
-                             style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                            <canvas id="connections-chart" width="120" height="120"></canvas>
-                            <div class="chart-text"><span id="connections-text">-/-</span><span
-                                class="donut-label">当前连接</span></div>
+
+                        {/* 当前连接卡片 */}
+                        <div class="stat-card-item">
+                            <div class="stat-card-content-vertical">
+                                <div class="stat-chart-top">
+                                    <canvas id="connections-chart" width="120" height="120"></canvas>
+                                </div>
+                                <div class="stat-info-bottom">
+                                    <h3>当前连接</h3>
+                                    <div class="stat-value" id="connections-text">-/-</div>
+                                </div>
+                            </div>
+                            <div class="stat-trend-side">
+                                <canvas id="connections-trend-chart" width="300" height="160"></canvas>
+                            </div>
                         </div>
-                    </div>
-                    <div class="stat-card donut-card">
-                        <div class="donut-container"
-                             style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                            <canvas id="bandwidth-chart" width="120" height="120"></canvas>
-                            <div class="chart-text"><span id="bandwidth-text">-/-</span><span
-                                class="donut-label">带宽使用</span></div>
+
+                        {/* 当前带宽卡片 */}
+                        <div class="stat-card-item">
+                            <div class="stat-card-content-vertical">
+                                <div class="stat-chart-top">
+                                    <canvas id="bandwidth-chart" width="120" height="120"></canvas>
+                                </div>
+                                <div class="stat-info-bottom">
+                                    <h3>当前带宽</h3>
+                                    <div class="stat-value" id="bandwidth-text">-/-</div>
+                                </div>
+                            </div>
+                            <div class="stat-trend-side">
+                                <canvas id="bandwidth-trend-chart" width="300" height="160"></canvas>
+                            </div>
                         </div>
                     </div>
                 </section>
-<section class="nodes-list">
-                    <div id="public-stats" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none;">
+                <section class="nodes-list">
+                    <div id="public-stats"
+                         style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none;">
                         {/* 统计信息将通过JavaScript动态填充 */}
                     </div>
                     <NodeTable
@@ -51,7 +77,7 @@ function HomeIndex() {
                         tableId="nodes-table"
                     />
                 </section>
-<NodeEdits mode="admin"/>
+                <NodeEdits mode="admin"/>
             </main>
             <WebFooter title="公共节点页面"/>
             <script src="/js/common.js"></script>

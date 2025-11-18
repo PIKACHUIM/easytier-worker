@@ -15,7 +15,7 @@ function HostSetup() {
                         点击"初始化系统"按钮后，系统将自动完成以下操作：
                     </p>
                     <ol style={{margin: '10px 0', paddingLeft: '20px', lineHeight: '1.8'}}>
-                        <li>导入数据库表结构（users、nodes、system_settings）</li>
+                        <li>导入数据库表结构（users、nodes、confs）</li>
                         <li>创建超级管理员账户</li>
                         <li>完成系统初始化配置</li>
                     </ol>

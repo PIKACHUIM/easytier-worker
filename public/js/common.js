@@ -121,15 +121,15 @@ function renderNodeRows(mode, nodes) {
                         icon = '⚡';
                         break;
                     case 'WS':
-                        bgColor = '#e8f5e8';
-                        borderColor = '#4caf50';
-                        textColor = '#388e3c';
-                        icon = '🌐';
-                        break;
-                    case 'WSS':
                         bgColor = '#fff3e0';
                         borderColor = '#ff9800';
                         textColor = '#f57c00';
+                        icon = '🌐';
+                        break;
+                    case 'WSS':
+                        bgColor = '#e8f5e8';
+                        borderColor = '#4caf50';
+                        textColor = '#388e3c';
                         icon = '🔒';
                         break;
                     case 'WG':
@@ -148,9 +148,9 @@ function renderNodeRows(mode, nodes) {
                 return `<span class="connection-badge" 
                     data-connection="${connText}"
                     style="
-                        display: inline-block;
+                        display: block;
                         padding: 6px 10px;
-                        margin: 3px 4px 3px 0;
+                        margin: 3px 0;
                         background: linear-gradient(135deg, ${bgColor} 0%, ${bgColor}dd 100%);
                         border: 1px solid ${borderColor};
                         border-radius: 6px;
@@ -163,6 +163,8 @@ function renderNodeRows(mode, nodes) {
                         position: relative;
                         overflow: hidden;
                         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        white-space: nowrap;
+                        width: fit-content;
                     "
                     onclick="copyToClipboard('${connText.replace(/'/g, "\\'")}', this)"
                     title="点击复制 ${connText}">
@@ -189,7 +191,7 @@ function renderNodeRows(mode, nodes) {
         <div class="progress-container">
           <div class="progress-bar" style="width: ${Math.min(connectionUsage, 100)}%; background-color: ${connectionColor};"></div>
         </div>
-        <div class="progress-text">${connectionCount} / ${maxConnections}</div>
+        <div class="progress-text">${connectionCount} / ${maxConnections} 节点连接数</div>
       </td>
       <td>
         <div class="progress-container">
@@ -426,17 +428,10 @@ function renderNodeDetail(node, mode, modalId, titleId, contentId) {
         '  </div>'
     );
 
-    // 根据模式添加Token信息
-    if (mode === 'public') {
+    if (mode === 'my' || mode === 'admin') {
         content.push(
-            '  <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;">',
-            '    <small style="color: #856404; display: block; margin-top: 10px;">⚠️ 公开详情不显示上报Token。如需管理节点请登录。</small>',
-            '  </div>'
-        );
-    } else if (mode === 'my') {
-        content.push(
-            '  <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;">',
-            '    <h3 style="margin-bottom: 10px; color: #856404;">上报Token</h3>',
+            '  <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; border: 1px solid #ffc107;">',
+            '    <h3 style="margin-bottom: 10px; color: #28a745;">上报Token</h3>',
             '    <div style="background: white; padding: 12px; border-radius: 4px; margin: 10px 0;">',
             '      <code style="font-family: monospace; font-size: 13px; word-break: break-all; color: #333;">' + (node.report_token || '未生成') + '</code>',
             '    </div>',
@@ -444,13 +439,6 @@ function renderNodeDetail(node, mode, modalId, titleId, contentId) {
             '      <button class="btn-small" onclick="copyToken(' + JSON.stringify(node.report_token || '') + ')">复制Token</button>',
             '      <button class="btn-small" onclick="regenerateToken(' + node.id + ')">重新生成Token</button>',
             '    </div>',
-            '  </div>'
-        );
-    } else if (mode === 'admin') {
-        content.push(
-            '  <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; border: 1px solid #28a745;">',
-            '    <h3 style="margin-bottom: 10px; color: #28a745;">上报Token</h3>',
-            '    <div class="node-info"><strong>Token:</strong> <code style="background: #f8f9fa; padding: 5px; border-radius: 3px;">' + escapeHtml(node.report_token || '未设置') + '</code></div>',
             '  </div>'
         );
     }

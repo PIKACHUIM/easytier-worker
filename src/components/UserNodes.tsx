@@ -10,8 +10,10 @@ function UserNodes() {
       <WebHeader title="EasyTier 节点管理系统 - 我的节点" />
       
       <main class="main">
-        <div class="dashboard-actions">
-          <button id="add-node-btn" class="btn-primary">添加节点</button>
+        <div class="dashboard-header">
+          <div class="dashboard-actions" style="display: flex; justify-content: space-between; align-items: center;">
+            <button id="add-node-btn" class="btn-primary">添加节点</button>
+          </div>
         </div>
         
         <NodeTable
@@ -21,7 +23,7 @@ function UserNodes() {
         />
       </main>
       
-<NodeEdits mode="dashboard" modalId="dashboard-node-modal" formId="dashboard-node-form" title="添加节点" />
+      <NodeEdits mode="dashboard" modalId="dashboard-node-modal" formId="dashboard-node-form" title="添加节点" />
       
       <WebFooter title="我的节点页面" />
       

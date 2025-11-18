@@ -4,12 +4,12 @@ import { hashPassword, verifyJWT, sendEmail, generateTestEmailContent } from '..
 
 const system = new Hono<{ Bindings: Env }>();
 
-// 检查系统是否已初始化（检查system_settings表是否存在）
+// 检查系统是否已初始化（检查confs表是否存在）
 system.get('/check-init', async (c) => {
   try {
-    // 尝试查询system_settings表，如果表不存在则说明未初始化
+    // 尝试查询confs表，如果表不存在则说明未初始化
     const result = await c.env.DB.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'"
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='confs'"
     ).first();
     
     const isInitialized = result !== null;
@@ -25,9 +25,9 @@ system.get('/check-init', async (c) => {
 // 导入数据库结构并初始化系统（使用JWT密钥验证）
 system.post('/import-schema', async (c) => {
   try {
-    // 检查system_settings表是否已存在
+    // 检查confs表是否已存在
     const tableExists = await c.env.DB.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'"
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='confs'"
     ).first();
     
     if (tableExists) {
@@ -84,7 +84,7 @@ system.post('/import-schema', async (c) => {
         FOREIGN KEY (user_email) REFERENCES users(email)
       )`,
       // 创建系统设置表
-      `CREATE TABLE IF NOT EXISTS system_settings (
+      `CREATE TABLE IF NOT EXISTS confs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         setting_key TEXT UNIQUE NOT NULL,
         setting_value TEXT NOT NULL,
@@ -96,15 +96,19 @@ system.post('/import-schema', async (c) => {
       `CREATE INDEX IF NOT EXISTS idx_nodes_region_type ON nodes(region_type)`,
       `CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status)`,
       `CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay)`,
-      `CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key)`,
+      `CREATE INDEX IF NOT EXISTS idx_confs_key ON confs(setting_key)`,
       // 插入默认系统设置（作为一个完整的语句）
-      `INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) VALUES
+      `INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         ('resend_api_key', '', 'Resend API 密钥'),
         ('resend_from_email', 'noreply@example.com', 'Resend 发件人邮箱'),
         ('resend_from_domain', 'example.com', 'Resend 发件域名'),
         ('system_initialized', '0', '系统是否已初始化'),
         ('site_name', 'EasyTier 节点管理系统', '网站名称'),
-        ('site_url', 'https://example.com', '网站URL')`
+        ('site_url', 'https://example.com', '网站URL'),
+        ('stats_online_nodes_history', '[]', '在线节点历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+        ('stats_connections_history', '[]', '连接数历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+        ('stats_bandwidth_history', '[]', '带宽使用历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+        ('stats_last_update', '', '统计数据最后更新时间')`
     ];
     
     // 使用batch方法批量执行，确保事务性
@@ -113,7 +117,7 @@ system.post('/import-schema', async (c) => {
     
     return c.json({ 
       message: '数据库结构导入成功',
-      tables_created: ['users', 'nodes', 'system_settings']
+      tables_created: ['users', 'nodes', 'confs']
     }, 201);
   } catch (error) {
     console.error('导入数据库错误:', error);
@@ -124,9 +128,9 @@ system.post('/import-schema', async (c) => {
 // 初始化系统（导入数据库并创建管理员账户）
 system.post('/initialize', async (c) => {
   try {
-    // 检查system_settings表是否已存在
+    // 检查confs表是否已存在
     const tableExists = await c.env.DB.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'"
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='confs'"
     ).first();
     
     if (tableExists) {
@@ -194,7 +198,7 @@ CREATE TABLE IF NOT EXISTS nodes (
 );
 
 -- 系统设置表
-CREATE TABLE IF NOT EXISTS system_settings (
+CREATE TABLE IF NOT EXISTS confs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   setting_key TEXT UNIQUE NOT NULL,
   setting_value TEXT NOT NULL,
@@ -207,10 +211,10 @@ CREATE INDEX IF NOT EXISTS idx_nodes_user_email ON nodes(user_email);
 CREATE INDEX IF NOT EXISTS idx_nodes_region_type ON nodes(region_type);
 CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status);
 CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay);
-CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key);
+CREATE INDEX IF NOT EXISTS idx_confs_key ON confs(setting_key);
 
 -- 插入默认系统设置
-INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) VALUES
+INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
   ('resend_api_key', '', 'Resend API 密钥'),
   ('resend_from_email', 'noreply@example.com', 'Resend 发件人邮箱'),
   ('resend_from_domain', 'example.com', 'Resend 发件域名'),
@@ -262,7 +266,7 @@ INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) 
         FOREIGN KEY (user_email) REFERENCES users(email)
       )`,
       // 创建系统设置表
-      `CREATE TABLE IF NOT EXISTS system_settings (
+      `CREATE TABLE IF NOT EXISTS confs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         setting_key TEXT UNIQUE NOT NULL,
         setting_value TEXT NOT NULL,
@@ -274,15 +278,19 @@ INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) 
       `CREATE INDEX IF NOT EXISTS idx_nodes_region_type ON nodes(region_type)`,
       `CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status)`,
       `CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay)`,
-      `CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key)`,
+      `CREATE INDEX IF NOT EXISTS idx_confs_key ON confs(setting_key)`,
       // 插入默认系统设置（作为一个完整的语句）
-      `INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) VALUES
+      `INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         ('resend_api_key', '', 'Resend API 密钥'),
         ('resend_from_email', 'noreply@example.com', 'Resend 发件人邮箱'),
         ('resend_from_domain', 'example.com', 'Resend 发件域名'),
         ('system_initialized', '1', '系统是否已初始化'),
         ('site_name', 'EasyTier 节点管理系统', '网站名称'),
-        ('site_url', 'https://example.com', '网站URL')`
+        ('site_url', 'https://example.com', '网站URL'),
+        ('stats_online_nodes_history', '[]', '在线节点历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+        ('stats_connections_history', '[]', '连接数历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+        ('stats_bandwidth_history', '[]', '带宽使用历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+        ('stats_last_update', '', '统计数据最后更新时间')`
     ];
     
     // 使用batch方法批量执行，确保事务性
@@ -323,7 +331,7 @@ system.get('/settings', async (c) => {
     
     // 获取所有系统设置（排除敏感信息）
     const settings = await c.env.DB.prepare(
-      'SELECT setting_key, setting_value, description FROM system_settings WHERE setting_key != ?'
+      'SELECT setting_key, setting_value, description FROM confs WHERE setting_key != ?'
     ).bind('system_initialized').all();
     
     // 转换为对象格式
@@ -360,7 +368,7 @@ system.put('/settings', async (c) => {
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) {
         await c.env.DB.prepare(
-          'UPDATE system_settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?'
+          'UPDATE confs SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?'
         ).bind(value, key).run();
       }
     }
@@ -421,7 +429,7 @@ system.put('/users/:email/admin', async (c) => {
     // 检查用户是否存在
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
-    ).bind(email).first<User>();
+    ).bind(email).first();
     
     if (!user) {
       return c.json({ error: '用户不存在' }, 404);
@@ -466,7 +474,7 @@ system.delete('/users/:email', async (c) => {
     // 检查用户是否存在
     const user = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
-    ).bind(email).first<User>();
+    ).bind(email).first();
     
     if (!user) {
       return c.json({ error: '用户不存在' }, 404);
@@ -523,20 +531,20 @@ system.post('/test-email', async (c) => {
     
     // 获取邮件服务配置
     const resendApiKey = await c.env.DB.prepare(
-      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
-    ).bind('resend_api_key').first<any>();
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('resend_api_key').first();
     
     const resendFromEmail = await c.env.DB.prepare(
-      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
-    ).bind('resend_from_email').first<any>();
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('resend_from_email').first();
     
     const siteName = await c.env.DB.prepare(
-      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
-    ).bind('site_name').first<any>();
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('site_name').first();
     
     const siteUrl = await c.env.DB.prepare(
-      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
-    ).bind('site_url').first<any>();
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('site_url').first();
     
 // 检查邮件服务配置
     if (!resendApiKey?.setting_value) {
@@ -605,3 +613,156 @@ system.post('/test-email', async (c) => {
 });
 
 export default system;
+
+// 定时任务：更新统计数据和节点状态（每10分钟执行）
+system.post('/cron/update-stats', async (c) => {
+  try {
+    // 验证请求来源（简单的cron任务验证）
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || authHeader !== `Bearer ${c.env.JWT_SECRET}`) {
+      return c.json({ error: '未授权' }, 401);
+    }
+
+    const now = new Date();
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+
+    // 1. 检查并更新离线节点（10分钟未上报）
+    const offlineResult = await c.env.DB.prepare(
+      `UPDATE nodes 
+       SET status = 'offline', connection_count = 0, current_bandwidth = 0
+       WHERE status = 'online' AND last_report_at < ?`
+    ).bind(tenMinutesAgo.toISOString()).run();
+
+    console.log(`[定时任务] 更新了 ${offlineResult.meta.changes} 个离线节点`);
+
+    // 2. 获取当前统计数据
+    const totalNodes = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM nodes'
+    ).first();
+
+    const onlineNodes = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM nodes WHERE status = ?'
+    ).bind('online').first();
+
+    const connectionsSums = await c.env.DB.prepare(
+      'SELECT SUM(connection_count) as connection_total FROM nodes'
+    ).first();
+
+    const bandwidthSums = await c.env.DB.prepare(
+      'SELECT SUM(current_bandwidth) as bandwidth_total FROM nodes'
+    ).first();
+
+    const onlineNodesCount = onlineNodes?.count || 0;
+    const connectionsCount = connectionsSums?.connection_total || 0;
+    const bandwidthTotal = bandwidthSums?.bandwidth_total || 0;
+
+    // 3. 更新历史统计数据
+    const historyUpdated = await updateStatsHistory(
+      c.env.DB,
+      onlineNodesCount,
+      connectionsCount,
+      bandwidthTotal
+    );
+
+    console.log(`[定时任务] 统计数据更新完成: 在线节点=${onlineNodesCount}, 连接数=${connectionsCount}, 带宽=${bandwidthTotal}Mbps`);
+
+    return c.json({
+      message: '统计数据更新成功',
+      offline_nodes_updated: offlineResult.meta.changes,
+      current_stats: {
+        total_nodes: totalNodes?.count || 0,
+        online_nodes: onlineNodesCount,
+        connections: connectionsCount,
+        bandwidth: bandwidthTotal
+      },
+      history_updated: historyUpdated
+    });
+  } catch (error) {
+    console.error('[定时任务] 更新统计数据错误:', error);
+    return c.json({ error: '更新统计数据失败' }, 500);
+  }
+});
+
+// 获取统计历史数据
+async function getStatsHistory(db: any) {
+  try {
+    const onlineNodesHistory = await db.prepare(
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('stats_online_nodes_history').first();
+
+    const connectionsHistory = await db.prepare(
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('stats_connections_history').first();
+
+    const bandwidthHistory = await db.prepare(
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('stats_bandwidth_history').first();
+
+    return {
+      online_nodes: JSON.parse(onlineNodesHistory?.setting_value || '[]'),
+      connections: JSON.parse(connectionsHistory?.setting_value || '[]'),
+      bandwidth: JSON.parse(bandwidthHistory?.setting_value || '[]')
+    };
+  } catch (error) {
+    console.error('获取统计历史数据错误:', error);
+    return {
+      online_nodes: [],
+      connections: [],
+      bandwidth: []
+    };
+  }
+}
+
+// 更新统计历史数据
+async function updateStatsHistory(db: any, onlineNodes: number, connections: number, bandwidth: number) {
+  try {
+    const now = new Date();
+    const timestamp = now.toISOString();
+    
+    // 获取当前历史数据
+    const currentHistory = await getStatsHistory(db);
+    
+    // 添加新数据点（144个点 = 24小时，每10分钟一个点）
+    const maxPoints = 144;
+    
+    // 更新在线节点历史
+    const newOnlineNodesHistory = [
+      ...currentHistory.online_nodes.slice(-(maxPoints - 1)),
+      { value: onlineNodes, timestamp }
+    ];
+    
+    // 更新连接数历史
+    const newConnectionsHistory = [
+      ...currentHistory.connections.slice(-(maxPoints - 1)),
+      { value: connections, timestamp }
+    ];
+    
+    // 更新带宽历史
+    const newBandwidthHistory = [
+      ...currentHistory.bandwidth.slice(-(maxPoints - 1)),
+      { value: bandwidth, timestamp }
+    ];
+    
+    // 更新数据库
+    await db.prepare(
+      'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
+    ).bind(JSON.stringify(newOnlineNodesHistory), timestamp, 'stats_online_nodes_history').run();
+    
+    await db.prepare(
+      'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
+    ).bind(JSON.stringify(newConnectionsHistory), timestamp, 'stats_connections_history').run();
+    
+    await db.prepare(
+      'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
+    ).bind(JSON.stringify(newBandwidthHistory), timestamp, 'stats_bandwidth_history').run();
+    
+    await db.prepare(
+      'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
+    ).bind(timestamp, timestamp, 'stats_last_update').run();
+    
+    return true;
+  } catch (error) {
+    console.error('更新统计历史数据错误:', error);
+    return false;
+  }
+}

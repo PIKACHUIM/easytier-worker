@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { Env, User, RegisterRequest, LoginRequest } from '../types';
-import { hashPassword, verifyPassword, createJWT, generateToken, sendEmail } from '../utils';
+import { hashPassword, verifyPassword, createJWT, verifyJWT, generateToken, sendEmail } from '../utils';
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -8,8 +8,8 @@ const auth = new Hono<{ Bindings: Env }>();
 auth.post('/register', async (c) => {
   try {
     // 检查系统是否已初始化
-    const initSetting = await c.env.DB.prepare(
-      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+      const initSetting = await c.env.DB.prepare(
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
     ).bind('system_initialized').first<any>();
     
     if (!initSetting || initSetting.setting_value !== '1') {
@@ -27,7 +27,7 @@ auth.post('/register', async (c) => {
       return c.json({ error: '密码长度至少为 6 位' }, 400);
     }
     
-// 检查用户是否已存在
+    // 检查用户是否已存在
     const existingUser = await c.env.DB.prepare(
       'SELECT * FROM users WHERE email = ?'
     ).bind(email).first<User>();
@@ -59,20 +59,20 @@ auth.post('/register', async (c) => {
           console.log('[重新注册] 开始发送验证邮件到:', email);
           
           const resendApiKey = await c.env.DB.prepare(
-            'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+            'SELECT setting_value FROM confs WHERE setting_key = ?'
           ).bind('resend_api_key').first<any>();
           
           const resendFromEmail = await c.env.DB.prepare(
-            'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+            'SELECT setting_value FROM confs WHERE setting_key = ?'
           ).bind('resend_from_email').first<any>();
           
           const siteUrl = await c.env.DB.prepare(
-            'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+            'SELECT setting_value FROM confs WHERE setting_key = ?'
           ).bind('site_url').first<any>();
           
           if (!resendApiKey?.setting_value) {
             console.error('[重新注册] 错误: Resend API Key 未配置');
-            return c.json({ 
+            return c.json({
               message: '重新注册成功，但邮件发送失败：邮件服务未配置',
               verification_token: verificationToken,
               warning: '请联系管理员配置邮件服务'
@@ -102,7 +102,7 @@ auth.post('/register', async (c) => {
 
           if (!emailResult.success) {
             console.error('[重新注册] 发送验证邮件失败:', emailResult.error);
-            return c.json({ 
+            return c.json({
               message: '重新注册成功，但邮件发送失败',
               verification_token: verificationToken,
               error_detail: emailResult.error,
@@ -112,7 +112,7 @@ auth.post('/register', async (c) => {
           
           console.log('[重新注册] 验证邮件发送成功');
           
-          return c.json({ 
+          return c.json({
             message: '重新注册成功，请查收新的验证邮件',
             email: email,
             verification_enabled: true,
@@ -121,7 +121,7 @@ auth.post('/register', async (c) => {
           }, 201);
         } catch (emailError) {
           console.error('[重新注册] 发送验证邮件异常:', emailError);
-          return c.json({ 
+          return c.json({
             message: '重新注册成功，但邮件发送失败',
             verification_token: verificationToken,
             error_detail: emailError instanceof Error ? emailError.message : String(emailError),
@@ -136,7 +136,7 @@ auth.post('/register', async (c) => {
         ).bind(passwordHash, email).run();
         
         console.log('[重新注册] 邮件验证已禁用，用户直接激活');
-        return c.json({ 
+        return c.json({
           message: '重新注册成功，账户已自动激活',
           email_verification_disabled: true,
           note: '您的旧账户信息已被更新'
@@ -166,15 +166,15 @@ auth.post('/register', async (c) => {
         
         // 获取 Resend 配置
         const resendApiKey = await c.env.DB.prepare(
-          'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+          'SELECT setting_value FROM confs WHERE setting_key = ?'
         ).bind('resend_api_key').first<any>();
         
         const resendFromEmail = await c.env.DB.prepare(
-          'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+          'SELECT setting_value FROM confs WHERE setting_key = ?'
         ).bind('resend_from_email').first<any>();
         
         const siteUrl = await c.env.DB.prepare(
-          'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+          'SELECT setting_value FROM confs WHERE setting_key = ?'
         ).bind('site_url').first<any>();
         
         console.log('[邮件验证] Resend配置:', {
@@ -186,7 +186,7 @@ auth.post('/register', async (c) => {
         
         if (!resendApiKey?.setting_value) {
           console.error('[邮件验证] 错误: Resend API Key 未配置');
-          return c.json({ 
+          return c.json({
             message: '注册成功，但邮件发送失败：邮件服务未配置',
             verification_token: verificationToken,
             warning: '请联系管理员配置邮件服务'
@@ -197,7 +197,7 @@ auth.post('/register', async (c) => {
           console.error('[邮件验证] 警告: 发件人邮箱未正确配置:', resendFromEmail?.setting_value);
         }
         
-// 使用封装好的 sendEmail 函数
+        // 使用封装好的 sendEmail 函数
         const verifyUrl = `${siteUrl?.setting_value || ''}/verify?token=${verificationToken}`;
         const htmlContent = `
           <h2>欢迎注册 EasyTier 节点管理系统</h2>
@@ -221,7 +221,7 @@ auth.post('/register', async (c) => {
         if (!emailResult.success) {
           console.error('[邮件验证] 发送验证邮件失败:', emailResult.error);
           
-          return c.json({ 
+          return c.json({
             message: '注册成功，但邮件发送失败',
             verification_token: verificationToken,
             error_detail: emailResult.error,
@@ -234,7 +234,7 @@ auth.post('/register', async (c) => {
         console.error('[邮件验证] 发送验证邮件异常:', emailError);
         console.error('[邮件验证] 错误堆栈:', emailError instanceof Error ? emailError.stack : '无堆栈信息');
         
-        return c.json({ 
+        return c.json({
           message: '注册成功，但邮件发送失败',
           verification_token: verificationToken,
           error_detail: emailError instanceof Error ? emailError.message : String(emailError),
@@ -242,7 +242,7 @@ auth.post('/register', async (c) => {
         }, 201);
       }
       
-return c.json({ 
+      return c.json({
         message: '注册成功，请查收验证邮件',
         email: email,
         verification_enabled: true,
@@ -250,7 +250,7 @@ return c.json({
       }, 201);
     } else {
       console.log('[邮件验证] 邮件验证已禁用，用户直接激活');
-      return c.json({ 
+      return c.json({
         message: '注册成功，账户已自动激活',
         email_verification_disabled: true
       }, 201);
@@ -289,7 +289,7 @@ auth.post('/login', async (c) => {
     // 检查是否启用邮件验证
     const enableEmailVerification = c.env.ENABLE_EMAIL_VERIFICATION;
     
-// 如果启用邮件验证，检查邮箱是否已验证
+    // 如果启用邮件验证，检查邮箱是否已验证
     if (enableEmailVerification && !user.is_verified) {
       return c.json({ 
         error: '请先验证您的邮箱',
@@ -362,23 +362,97 @@ auth.post('/change-password', async (c) => {
       return c.json({ error: '未授权' }, 401);
     }
     
-    const { old_password, new_password } = await c.req.json();
+    const token = authHeader.substring(7);
+    const { new_password } = await c.req.json();
     
-    if (!old_password || !new_password) {
-      return c.json({ error: '旧密码和新密码不能为空' }, 400);
+    if (!new_password) {
+      return c.json({ error: '新密码不能为空' }, 400);
     }
     
     if (new_password.length < 6) {
       return c.json({ error: '新密码长度至少为 6 位' }, 400);
     }
     
-    // 这里需要从 JWT 中获取用户信息
-    // 简化处理，实际应该使用中间件
+    // 验证JWT并获取用户信息
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    if (!payload) {
+      return c.json({ error: '无效的令牌' }, 401);
+    }
+    
+    // 查找用户
+    const user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE email = ?'
+    ).bind(payload.email).first<User>();
+    
+    if (!user) {
+      return c.json({ error: '用户不存在' }, 404);
+    }
+    
+    // 生成新密码哈希（不需要验证旧密码，直接修改）
+    const newPasswordHash = await hashPassword(new_password);
+    
+    // 更新密码
+    await c.env.DB.prepare(
+      'UPDATE users SET password_hash = ? WHERE email = ?'
+    ).bind(newPasswordHash, payload.email).run();
+    
+    console.log('[修改密码] 用户密码修改成功:', payload.email);
     
     return c.json({ message: '密码修改成功' });
   } catch (error) {
     console.error('修改密码错误:', error);
     return c.json({ error: '修改密码失败' }, 500);
+  }
+});
+
+// 重置Token（重新登录获取新token）
+auth.post('/reset-token', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    
+    // 验证JWT并获取用户信息
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    if (!payload) {
+      return c.json({ error: '无效的令牌' }, 401);
+    }
+    
+    // 查找用户
+    const user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE email = ?'
+    ).bind(payload.email).first<User>();
+    
+    if (!user) {
+      return c.json({ error: '用户不存在' }, 404);
+    }
+    
+    // 生成新的JWT（不需要验证密码，直接重置）
+    const newToken = await createJWT(
+      { 
+        email: user.email, 
+        is_admin: !!user.is_admin,
+        is_super_admin: !!user.is_super_admin
+      },
+      c.env.JWT_SECRET
+    );
+    
+    console.log('[重置Token] 用户Token重置成功:', user.email);
+    
+    return c.json({
+      token: newToken,
+      user: {
+        email: user.email,
+        is_admin: !!user.is_admin,
+        is_super_admin: !!user.is_super_admin
+      }
+    });
+  } catch (error) {
+    console.error('重置Token错误:', error);
+    return c.json({ error: '重置Token失败' }, 500);
   }
 });
 
@@ -465,15 +539,15 @@ auth.post('/resend-verification', async (c) => {
     
     // 获取邮件服务配置
     const resendApiKey = await c.env.DB.prepare(
-      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
     ).bind('resend_api_key').first<any>();
     
     const resendFromEmail = await c.env.DB.prepare(
-      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
     ).bind('resend_from_email').first<any>();
     
     const siteUrl = await c.env.DB.prepare(
-      'SELECT setting_value FROM system_settings WHERE setting_key = ?'
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
     ).bind('site_url').first<any>();
     
     if (!resendApiKey?.setting_value) {
@@ -521,6 +595,203 @@ auth.post('/resend-verification', async (c) => {
   } catch (error) {
     console.error('[重新发送验证] 重新发送验证邮件错误:', error);
     return c.json({ error: '重新发送验证邮件失败' }, 500);
+  }
+});
+
+// 请求密码重置（发送重置邮件）
+auth.post('/request-password-reset', async (c) => {
+  try {
+    const { email } = await c.req.json();
+    
+    if (!email) {
+      return c.json({ error: '邮箱地址不能为空' }, 400);
+    }
+    
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return c.json({ error: '邮箱格式不正确' }, 400);
+    }
+    
+    // 查找用户
+    const user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE email = ?'
+    ).bind(email).first<User>();
+    
+    if (!user) {
+      // 为了安全，即使用户不存在也返回成功消息
+      return c.json({ 
+        message: '如果该邮箱已注册，您将收到密码重置邮件',
+        details: '请查收邮箱（包括垃圾邮件文件夹）'
+      });
+    }
+    
+    // 生成密码重置令牌
+    const resetToken = generateToken();
+    
+    // 将重置令牌存储到数据库（复用verification_token字段）
+    await c.env.DB.prepare(
+      'UPDATE users SET verification_token = ? WHERE email = ?'
+    ).bind(resetToken, email).run();
+    
+    // 获取邮件服务配置
+    const resendApiKey = await c.env.DB.prepare(
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('resend_api_key').first<any>();
+    
+    const resendFromEmail = await c.env.DB.prepare(
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('resend_from_email').first<any>();
+    
+    const siteUrl = await c.env.DB.prepare(
+      'SELECT setting_value FROM confs WHERE setting_key = ?'
+    ).bind('site_url').first<any>();
+    
+    if (!resendApiKey?.setting_value) {
+      console.error('[密码重置] 错误: Resend API Key 未配置');
+      return c.json({ 
+        error: '邮件服务未配置',
+        details: '请联系管理员配置邮件服务'
+      }, 500);
+    }
+    
+    // 发送密码重置邮件
+    const resetUrl = `${siteUrl?.setting_value || ''}/reset-password?token=${resetToken}`;
+    const htmlContent = `
+      <h2>密码重置 - EasyTier 节点管理系统</h2>
+      <p>您请求重置密码，请点击以下链接重置您的密码：</p>
+      <p><a href="${resetUrl}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">重置密码</a></p>
+      <p>或复制以下链接到浏览器：</p>
+      <p>${resetUrl}</p>
+      <p>如果您没有请求重置密码，请忽略此邮件。</p>
+      <p><small>此重置链接将在24小时内有效。</small></p>
+    `;
+
+    console.log('[密码重置] 发送密码重置邮件到:', email);
+    
+    const emailResult = await sendEmail(
+      resendApiKey.setting_value,
+      resendFromEmail?.setting_value || 'noreply@example.com',
+      email,
+      '密码重置 - EasyTier 节点管理系统',
+      htmlContent
+    );
+
+    if (!emailResult.success) {
+      console.error('[密码重置] 发送密码重置邮件失败:', emailResult.error);
+      return c.json({ 
+        error: '密码重置邮件发送失败',
+        details: emailResult.error
+      }, 500);
+    }
+    
+    console.log('[密码重置] 密码重置邮件发送成功:', email);
+    
+    return c.json({ 
+      message: '密码重置邮件已发送',
+      details: '请查收邮箱（包括垃圾邮件文件夹）'
+    });
+    
+  } catch (error) {
+    console.error('[密码重置] 请求密码重置错误:', error);
+    return c.json({ error: '请求密码重置失败' }, 500);
+  }
+});
+
+// 重置密码
+auth.post('/reset-password', async (c) => {
+  try {
+    const { token, new_password } = await c.req.json();
+    
+    if (!token) {
+      return c.json({ error: '重置令牌不能为空' }, 400);
+    }
+    
+    if (!new_password) {
+      return c.json({ error: '新密码不能为空' }, 400);
+    }
+    
+    if (new_password.length < 6) {
+      return c.json({ error: '新密码长度至少为 6 位' }, 400);
+    }
+    
+    // 查找具有此重置令牌的用户
+    const user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE verification_token = ?'
+    ).bind(token).first<User>();
+    
+    if (!user) {
+      return c.json({ error: '重置链接无效或已过期' }, 400);
+    }
+    
+    // 检查令牌是否过期（24小时有效）
+    const tokenCreatedTime = new Date(user.created_at);
+    const now = new Date();
+    const hoursDiff = (now.getTime() - tokenCreatedTime.getTime()) / (1000 * 60 * 60);
+    
+    if (hoursDiff > 24) {
+      return c.json({ error: '重置链接已过期，请重新请求密码重置' }, 400);
+    }
+    
+    // 生成新密码哈希
+    const newPasswordHash = await hashPassword(new_password);
+    
+    // 更新密码并清除重置令牌
+    await c.env.DB.prepare(
+      'UPDATE users SET password_hash = ?, verification_token = NULL WHERE email = ?'
+    ).bind(newPasswordHash, user.email).run();
+    
+    console.log('[密码重置] 用户密码重置成功:', user.email);
+    
+    return c.json({ 
+      message: '密码重置成功',
+      details: '您现在可以使用新密码登录'
+    });
+    
+  } catch (error) {
+    console.error('[密码重置] 重置密码错误:', error);
+    return c.json({ error: '重置密码失败' }, 500);
+  }
+});
+
+// 获取当前用户信息
+auth.get('/me', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    if (!payload || !payload.email) {
+      return c.json({ error: '无效的令牌' }, 401);
+    }
+    
+    // 从数据库获取最新的用户信息
+    const user = await c.env.DB.prepare(
+      'SELECT id, email, is_admin, is_super_admin, is_verified, created_at FROM users WHERE email = ?'
+    ).bind(payload.email).first<User>();
+    
+    if (!user) {
+      return c.json({ error: '用户不存在' }, 404);
+    }
+    
+    if (!user.is_verified) {
+      return c.json({ error: '邮箱未验证' }, 403);
+    }
+    
+    return c.json({
+      email: user.email,
+      is_admin: user.is_admin,
+      is_super_admin: user.is_super_admin,
+      is_verified: user.is_verified
+    });
+    
+  } catch (error) {
+    console.error('[获取用户信息] 错误:', error);
+    return c.json({ error: '获取用户信息失败' }, 500);
   }
 });
 

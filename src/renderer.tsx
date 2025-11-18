@@ -110,7 +110,7 @@ export const renderer = jsxRenderer(({ children }) => {
           }
 
           .stat-value {
-            font-size: 36px;
+            font-size: 24px;
             font-weight: bold;
           }
 
@@ -380,7 +380,7 @@ export const renderer = jsxRenderer(({ children }) => {
           .nodes-table th,
           .nodes-table td {
             padding: 12px;
-            text-align: left;
+            text-align: center;
             border-bottom: 1px solid #eee;
           }
 
@@ -498,6 +498,19 @@ export const renderer = jsxRenderer(({ children }) => {
             color: #00695c;
           }
 
+          /* 个人设置链接样式 */
+          #token-link {
+            background-color: rgba(0, 150, 136, 0.15);
+            border: 1px solid rgba(0, 150, 136, 0.4);
+            color: #00796b;
+            font-weight: 600;
+          }
+          #token-link:hover {
+            background-color: rgba(0, 150, 136, 0.25);
+            border-color: rgba(0, 150, 136, 0.6);
+            color: #00695c;
+          }
+
           /* 管理员链接特殊样式 */
           #admin-link {
             background-color: rgba(255, 193, 7, 0.15);
@@ -513,16 +526,16 @@ export const renderer = jsxRenderer(({ children }) => {
           }
 
           #settings-link {
-            background-color: rgba(76, 175, 80, 0.15);
-            border: 1px solid rgba(76, 175, 80, 0.4);
-            color: #388e3c;
+            background-color: rgba(255, 193, 7, 0.15);
+            border: 1px solid rgba(255, 193, 7, 0.4);
+            color: #f57c00;
             font-weight: 600;
           }
 
           #settings-link:hover {
-            background-color: rgba(76, 175, 80, 0.25);
-            border-color: rgba(76, 175, 80, 0.6);
-            color: #2e7d32;
+            background-color: rgba(255, 193, 7, 0.25);
+            border-color: rgba(255, 193, 7, 0.6);
+            color: #e65100;
           }
 
           #login-link {
@@ -669,7 +682,7 @@ window.renderNodeRows = function(mode, nodes) {
                   '<div class="progress-container">' +
                     '<div class="progress-bar" style="width: ' + Math.min(connectionUsage, 100) + '%; background-color: ' + connectionColor + ';"></div>' +
                   '</div>' +
-                  '<div class="progress-text">' + connectionCount + ' / ' + maxConnections + '</div>' +
+                  '<div class="progress-text">' + connectionCount + ' / ' + maxConnections + ' 节点连接数</div>' +
                 '</td>' +
                 '<td>' +
                   '<div class="progress-container">' +

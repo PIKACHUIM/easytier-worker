@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS nodes (
 );
 
 -- 系统设置表
-CREATE TABLE IF NOT EXISTS system_settings (
+CREATE TABLE IF NOT EXISTS confs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   setting_key TEXT UNIQUE NOT NULL,
   setting_value TEXT NOT NULL,
@@ -54,13 +54,21 @@ CREATE INDEX IF NOT EXISTS idx_nodes_user_email ON nodes(user_email);
 CREATE INDEX IF NOT EXISTS idx_nodes_region_type ON nodes(region_type);
 CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status);
 CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay);
-CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key);
+CREATE INDEX IF NOT EXISTS idx_confs_key ON confs(setting_key);
 
 -- 插入默认系统设置
-INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) VALUES
+INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
   ('resend_api_key', '', 'Resend API 密钥'),
   ('resend_from_email', 'noreply@example.com', 'Resend 发件人邮箱'),
   ('resend_from_domain', 'example.com', 'Resend 发件域名'),
   ('system_initialized', '0', '系统是否已初始化'),
   ('site_name', 'EasyTier 节点管理系统', '网站名称'),
-  ('site_url', 'https://example.com', '网站URL');
+  ('site_url', 'https://example.com', '网站URL'),
+  ('stats_online_nodes_history', '[]', '在线节点历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+  ('stats_connections_history', '[]', '连接数历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+  ('stats_bandwidth_history', '[]', '带宽使用历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+  ('stats_last_update', '', '统计数据最后更新时间');
+  ('stats_online_nodes_history', '[]', '在线节点历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+  ('stats_connections_history', '[]', '连接数历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+  ('stats_bandwidth_history', '[]', '带宽使用历史数据，JSON数组，每10分钟一个数据点，保存24小时'),
+  ('stats_last_update', '', '统计数据最后更新时间');

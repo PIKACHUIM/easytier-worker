@@ -5,7 +5,7 @@ import ssrPlugin from 'vite-ssr-components/plugin'
 export default defineConfig({
   plugins: [
     cloudflare({
-      configPath: './wrangler.jsonc',
+      configPath: './wrangler.test.jsonc',
       persistState: true
     }), 
     ssrPlugin()

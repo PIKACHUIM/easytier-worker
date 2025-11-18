@@ -24,6 +24,8 @@ async function checkUserStatus() {
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
+                const tokenLink = document.getElementById('token-link');
+                if (tokenLink) tokenLink.style.display = 'inline';
                 if (user.is_admin || user.is_super_admin) {
                     const adminLink = document.getElementById('admin-link');
                     const settingsLink = document.getElementById('settings-link');

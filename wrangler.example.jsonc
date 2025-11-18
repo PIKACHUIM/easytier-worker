@@ -1,0 +1,80 @@
+{
+  // Cloudflare Workers 配置文件
+  // 复制此文件为 wrangler.jsonc 并填入您的配置
+  
+  "name": "easytier-manager",
+  "main": "src/index.tsx",
+  "compatibility_date": "2024-01-01",
+  
+  // 环境变量配置
+  "vars": {
+    // JWT 密钥 - 用于用户认证和定时任务验证
+    "JWT_SECRET": "your-super-secret-jwt-key-here",
+    
+    // 网站基本信息
+    "SITE_NAME": "EasyTier 节点管理系统",
+    "SITE_URL": "https://your-domain.workers.dev"
+  },
+  
+  // D1 数据库绑定
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "easytier-manager-db",
+      "database_id": "your-database-id-here"
+    }
+  ],
+  
+  // R2 存储绑定（可选，用于文件存储）
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "easytier-manager-storage"
+    }
+  ],
+  
+  // 定时触发器配置 - 每10分钟执行一次统计数据更新
+  "triggers": {
+    "crons": ["*/10 * * * *"]
+  },
+  
+  // 路由配置
+  "routes": [
+    {
+      "pattern": "your-domain.workers.dev/*",
+      "zone_name": "workers.dev"
+    }
+  ],
+  
+  // 构建配置
+  "build": {
+    "command": "npm run build",
+    "watch_dir": "src"
+  },
+  
+  // 开发环境配置
+  "dev": {
+    "port": 8787,
+    "local_protocol": "http"
+  },
+  
+  // 环境特定配置
+  "env": {
+    "staging": {
+      "name": "easytier-manager-staging",
+      "vars": {
+        "JWT_SECRET": "your-staging-jwt-secret",
+        "SITE_NAME": "EasyTier 节点管理系统 - 测试环境",
+        "SITE_URL": "https://staging.your-domain.workers.dev"
+      }
+    },
+    "production": {
+      "name": "easytier-manager-prod",
+      "vars": {
+        "JWT_SECRET": "your-production-jwt-secret",
+        "SITE_NAME": "EasyTier 节点管理系统",
+        "SITE_URL": "https://your-domain.workers.dev"
+      }
+    }
+  }
+}

@@ -10,7 +10,9 @@ import HomeIndex from './components/HomeIndex'
 import UserLogin from './components/UserLogin'
 import UserSetup from './components/UserSetup'
 import UserNodes from './components/UserNodes'
+import UserToken from './components/UserToken'
 import UserEmail from './components/UserEmail'
+import UserReset from './components/UserReset'
 import EmailVerificationRequired from './components/EmailVerificationRequired'
 import HostNodes from './components/HostNodes'
 import HostSetup from './components/HostSetup'
@@ -46,6 +48,10 @@ app.get('/dashboard', (c) => {
   return c.render(<UserNodes />)
 })
 
+app.get('/usertoken', (c) => {
+  return c.render(<UserToken />)
+})
+
 app.get('/admin', (c) => {
   return c.render(<HostNodes />)
 })
@@ -64,6 +70,10 @@ app.get('/verify', (c) => {
 
 app.get('/verify-required', (c) => {
   return c.render(<EmailVerificationRequired />)
+})
+
+app.get('/reset-password', (c) => {
+  return c.render(<UserReset />)
 })
 
 export default app
