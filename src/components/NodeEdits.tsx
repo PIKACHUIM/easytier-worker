@@ -163,6 +163,18 @@ function NodeEdits({
                     </div>
 
                     <div className="form-group">
+                        <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <input
+                                type="checkbox"
+                                id={`${prefix}is-enabled`}
+                                style={{width: 'auto'}}
+                                defaultChecked
+                            />
+                            节点启用（禁用后不在公共节点中显示）
+                        </label>
+                    </div>
+
+                    <div className="form-group">
                         <label htmlFor={`${prefix}tags`}>标签</label>
                         <input
                             type="text"

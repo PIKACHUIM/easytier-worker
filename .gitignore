@@ -35,4 +35,7 @@ lerna-debug.log*
 wrangler.test.jsonc
 .idea
 __pycache__
-monitor/node_monitor_config.json
+uptime.db
+uptime.db-shm
+uptime.db-wal
+uptime.db

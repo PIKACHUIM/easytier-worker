@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS nodes (
   recent_status TEXT DEFAULT '', -- 30天内每10分钟负荷情况
   notes TEXT, -- 备注信息
   allow_relay INTEGER DEFAULT 0, -- 是否允许中转
+  is_enabled INTEGER DEFAULT 1, -- 节点是否启用（1-启用，0-禁用）
 last_report_at DATETIME, -- 最后上报时间
   report_token TEXT, -- 节点上报验证token
   network_name TEXT, -- 测试网络名称

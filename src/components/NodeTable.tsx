@@ -13,7 +13,8 @@ function NodeTable({
                        containerId = 'nodes-container',
                        tableId = 'nodes-table'
                    }: NodesTableProps) {
-    const colSpan = 11;
+    // 根据模式设置不同的colSpan：admin模式多一列用户邮箱
+    const colSpan = mode === 'admin' ? 13 : 12;
 
     return (
         <>
@@ -39,6 +40,8 @@ function NodeTable({
                         <th style={{textAlign: 'center', 'min-width': '150px'}}>流量</th>
                         <th style={{textAlign: 'center', 'min-width': '150px'}}>连接信息</th>
                         <th style={{textAlign: 'center', 'min-width': '70px'}}>中转</th>
+                        <th style={{textAlign: 'center', 'min-width': '80px'}}>启用</th>
+                        {mode === 'admin' && <th style={{textAlign: 'center', 'min-width': '150px'}}>用户邮箱</th>}
                         <th style={{textAlign: 'center', 'min-width': '70px'}}>标签</th>
                         <th style={{textAlign: 'center', width: '100%'}}>备注</th>
                         <th style={{textAlign: 'center', 'min-width': '200px'}}>操作</th>

@@ -116,9 +116,9 @@ nodes.post('/', authMiddleware, async (c) => {
       INSERT INTO nodes (
         user_email, node_name, region_type, region_detail, connections,
         tier_bandwidth, max_bandwidth, max_traffic, reset_cycle, reset_date,
-        max_connections, tags, valid_until, notes, allow_relay, report_token,
+        max_connections, tags, valid_until, notes, allow_relay, is_enabled, report_token,
         network_name, network_token
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       user.email,
       data.node_name,
@@ -135,6 +135,7 @@ nodes.post('/', authMiddleware, async (c) => {
       data.valid_until,
       data.notes || '',
       data.allow_relay,
+      (data.is_enabled ?? 1),
       reportToken,
       data.network_name || '',
       data.network_token || ''
@@ -243,6 +244,10 @@ const node = await c.env.DB.prepare(
 if (data.allow_relay !== undefined) {
       updates.push('allow_relay = ?');
       values.push(data.allow_relay);
+    }
+    if (data.is_enabled !== undefined) {
+      updates.push('is_enabled = ?');
+      values.push(data.is_enabled);
     }
     if (data.network_name !== undefined) {
       updates.push('network_name = ?');

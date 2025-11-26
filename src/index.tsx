@@ -96,6 +96,7 @@ export async function scheduled(event: any, env: Env, ctx: any): Promise<void> {
                  connection_count = 0,
                  current_bandwidth = 0
              WHERE status = 'online'
+               AND is_enabled = 1
                AND last_report_at < ?`
         ).bind(tenMinutesAgo.toISOString()).run();
 
@@ -103,23 +104,23 @@ export async function scheduled(event: any, env: Env, ctx: any): Promise<void> {
 
         // 2. 获取当前统计数据
         const totalNodes = await env.DB.prepare(
-            'SELECT COUNT(*) as count FROM nodes'
+            'SELECT COUNT(*) as count FROM nodes WHERE is_enabled = 1'
         ).first();
 
         const onlineNodes = await env.DB.prepare(
-            'SELECT COUNT(*) as count FROM nodes WHERE status = ?'
+            'SELECT COUNT(*) as count FROM nodes WHERE status = ? AND is_enabled = 1'
         ).bind('online').first();
 
         const connectionsSums = await env.DB.prepare(
-            'SELECT SUM(connection_count) as connection_total FROM nodes'
+            'SELECT SUM(connection_count) as connection_total FROM nodes WHERE is_enabled = 1'
         ).first();
 
         const bandwidthSums = await env.DB.prepare(
-            'SELECT SUM(current_bandwidth) as bandwidth_total FROM nodes'
+            'SELECT SUM(current_bandwidth) as bandwidth_total FROM nodes WHERE is_enabled = 1'
         ).first();
 
         const tierbandSums = await env.DB.prepare(
-            'SELECT SUM(tier_bandwidth) as tierband_total FROM nodes'
+            'SELECT SUM(tier_bandwidth) as tierband_total FROM nodes WHERE is_enabled = 1'
         ).first();
 
         const onlineNodesCount = onlineNodes?.count || 0;

@@ -128,7 +128,33 @@ window.collectAdminConnections = function() {
 
 // 加载所有节点数据 - 使用统一的节点加载函数
 function loadAllNodes() {
-  return loadNodes('/api/nodes/all', 'admin', 'adminNodesCache', 12);
+return loadNodes('/api/nodes/all', 'admin', 'adminNodesCache', 14);
+}
+
+// 筛选节点
+function filterNodes() {
+  const filterValue = document.getElementById('user-filter').value.trim().toLowerCase();
+  const nodes = window.adminNodesCache || [];
+  
+  if (!filterValue) {
+    // 如果筛选框为空，显示所有节点
+    const container = document.getElementById('nodes-container');
+    container.innerHTML = renderNodeRows('admin', nodes);
+    return;
+  }
+  
+  // 筛选匹配的节点
+  const filteredNodes = nodes.filter(node => {
+    const userEmail = (node.user_email || '').toLowerCase();
+    return userEmail.includes(filterValue);
+  });
+  
+  const container = document.getElementById('nodes-container');
+  if (filteredNodes.length === 0) {
+    container.innerHTML = `<tr><td colspan="14" style="text-align: center;">没有找到匹配的节点</td></tr>`;
+  } else {
+    container.innerHTML = renderNodeRows('admin', filteredNodes);
+  }
 }
 
 // 查看管理员节点详情 - 使用统一的节点详情查看函数
@@ -208,6 +234,7 @@ window.editAdminNode = (nodeId) => {
   document.getElementById('admin-max-traffic').value = node.max_traffic || '';
   document.getElementById('admin-reset-cycle').value = node.reset_cycle || '';
   document.getElementById('admin-allow-relay').checked = node.allow_relay;
+  document.getElementById('admin-is-enabled').checked = node.is_enabled !== 0;
   document.getElementById('admin-tags').value = node.tags || '';
   document.getElementById('admin-notes').value = node.notes || '';
   
@@ -302,7 +329,8 @@ const data = {
     max_traffic: parseFloat(document.getElementById('admin-max-traffic').value) || 0,
     reset_cycle: parseInt(document.getElementById('admin-reset-cycle').value) || 0,
     allow_relay: document.getElementById('admin-allow-relay').checked ? 1 : 0,
-    tags: document.getElementById('admin-tags').value,
+    is_enabled: document.getElementById('admin-is-enabled').checked ? 1 : 0,
+    tags: document.getElementById('admin-tags').value.trim(),
     notes: document.getElementById('admin-notes').value,
     valid_until: document.getElementById('admin-valid-until').value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   };
@@ -443,8 +471,33 @@ document.getElementById('add-node-btn')?.addEventListener('click', () => {
     }
   });
   
+  // 用户筛选功能
+  const userFilterInput = document.getElementById('user-filter');
+  if (userFilterInput) {
+    // 实时筛选
+    userFilterInput.addEventListener('input', filterNodes);
+  }
+  
+  // 清除筛选按钮
+  const clearFilterBtn = document.getElementById('clear-filter-btn');
+  if (clearFilterBtn) {
+    clearFilterBtn.addEventListener('click', () => {
+      const userFilterInput = document.getElementById('user-filter');
+      if (userFilterInput) {
+        userFilterInput.value = '';
+        filterNodes();
+      }
+    });
+  }
+  
   // 定期刷新
   setInterval(() => {
-    loadAllNodes();
+    loadAllNodes().then(() => {
+      // 刷新后重新应用筛选
+      const filterValue = document.getElementById('user-filter')?.value;
+      if (filterValue && filterValue.trim()) {
+        filterNodes();
+      }
+    });
   }, 30000);
 });

@@ -682,7 +682,7 @@ window.renderNodeRows = function(mode, nodes) {
                   '<div class="progress-container">' +
                     '<div class="progress-bar" style="width: ' + Math.min(connectionUsage, 100) + '%; background-color: ' + connectionColor + ';"></div>' +
                   '</div>' +
-                  '<div class="progress-text">' + connectionCount + ' / ' + maxConnections + ' 节点连接数</div>' +
+                  '<div class="progress-text">' + connectionCount + ' / ' + maxConnections + ' 连接数</div>' +
                 '</td>' +
                 '<td>' +
                   '<div class="progress-container">' +

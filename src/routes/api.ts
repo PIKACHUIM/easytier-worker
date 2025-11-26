@@ -153,7 +153,7 @@ api.use('/query', async (c) => {
 
         console.log(data);
         // 构建查询条件
-        let query = 'SELECT * FROM nodes WHERE status = ? AND valid_until > ?';
+        let query = 'SELECT * FROM nodes WHERE status = ? AND valid_until > ? AND is_enabled = 1';
         const params: any[] = ['online', new Date().toISOString()];
 
         // 地域筛选
@@ -246,7 +246,7 @@ api.get('/public', async (c) => {
     try {
         const showOffline = c.req.query('show_offline') === 'true';
 
-        let query = 'SELECT * FROM nodes WHERE valid_until > ?';
+        let query = 'SELECT * FROM nodes WHERE valid_until > ? AND is_enabled = 1';
         const params: any[] = [new Date().toISOString()];
 
         if (!showOffline) {
@@ -309,31 +309,31 @@ api.get('/stats', async (c) => {
     try {
         // 总节点数
         const totalNodes = await c.env.DB.prepare(
-            'SELECT COUNT(*) as count FROM nodes'
+            'SELECT COUNT(*) as count FROM nodes WHERE is_enabled = 1'
         ).first();
 
         // 在线节点数
         const onlineNodes = await c.env.DB.prepare(
-            'SELECT COUNT(*) as count FROM nodes WHERE status = ?'
+            'SELECT COUNT(*) as count FROM nodes WHERE status = ? AND is_enabled = 1'
         ).bind('online').first();
 
         // 国内节点数
         const domesticNodes = await c.env.DB.prepare(
-            'SELECT COUNT(*) as count FROM nodes WHERE region_type = ?'
+            'SELECT COUNT(*) as count FROM nodes WHERE region_type = ? AND is_enabled = 1'
         ).bind('domestic').first();
 
         // 海外节点数
         const overseasNodes = await c.env.DB.prepare(
-            'SELECT COUNT(*) as count FROM nodes WHERE region_type = ?'
+            'SELECT COUNT(*) as count FROM nodes WHERE region_type = ? AND is_enabled = 1'
         ).bind('overseas').first();
 
         // 在线节点带宽汇总（当前/阶梯/最大）与连接汇总
         const bandwidthSums = await c.env.DB.prepare(
-            'SELECT SUM(current_bandwidth) as current_total, SUM(tier_bandwidth) as tier_total, SUM(max_bandwidth) as max_total FROM nodes'
+            'SELECT SUM(current_bandwidth) as current_total, SUM(tier_bandwidth) as tier_total, SUM(max_bandwidth) as max_total FROM nodes WHERE is_enabled = 1'
         ).first();
 
         const connectionsSums = await c.env.DB.prepare(
-            'SELECT SUM(connection_count) as connection_total, SUM(max_connections) as max_total FROM nodes'
+            'SELECT SUM(connection_count) as connection_total, SUM(max_connections) as max_total FROM nodes WHERE is_enabled = 1'
         ).first();
 
         // 获取历史统计数据

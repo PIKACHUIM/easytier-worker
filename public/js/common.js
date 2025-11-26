@@ -185,13 +185,13 @@ return `
         <div class="progress-container">
           <div class="progress-bar" style="width: ${Math.min(bandwidthUsage, 100)}%; background-color: ${bandwidthColor};"></div>
         </div>
-        <div class="progress-text">${currentBandwidth.toFixed(2)} / ${maxBandwidth.toFixed(2)} Mbps</div>
+        <div class="progress-text">${currentBandwidth.toFixed(2)} / ${maxBandwidth.toFixed(2)} M</div>
       </td>
       <td>
         <div class="progress-container">
           <div class="progress-bar" style="width: ${Math.min(connectionUsage, 100)}%; background-color: ${connectionColor};"></div>
         </div>
-        <div class="progress-text">${connectionCount} / ${maxConnections} 节点连接数</div>
+        <div class="progress-text">${connectionCount} / ${maxConnections} 连接数</div>
       </td>
       <td>
         <div class="progress-container">
@@ -201,6 +201,8 @@ return `
       </td>
 <td>${connectionInfo}</td>
       <td>${node.allow_relay ? '是' : '否'}</td>
+      <td>${node.is_enabled !== 0 ? '<span style="color: #4caf50;">✓</span>' : '<span style="color: #f44336;">✗</span>'}</td>
+      ${mode === 'admin' ? `<td>${escapeHtml(node.user_email || '-')}</td>` : ''}
       <td>${escapeHtml(node.tags || '-')}</td>
       <td>${escapeHtml(node.notes || '-')}</td>
       ${mode === 'my' ? `<td>
@@ -380,7 +382,8 @@ const content = [
 
     content.push(
         '    <div class="node-info"><strong>当前状态:</strong> <span class="node-status ' + node.status + '">' + (node.status === 'online' ? '在线' : '离线') + '</span></div>',
-        '    <div class="node-info"><strong>允许中转:</strong> ' + (node.allow_relay ? '是' : '否') + '</div>'
+        '    <div class="node-info"><strong>允许中转:</strong> ' + (node.allow_relay ? '是' : '否') + '</div>',
+        '    <div class="node-info"><strong>节点启用:</strong> ' + (node.is_enabled !== 0 ? '<span style="color: #4caf50;">✓ 启用</span>' : '<span style="color: #f44336;">✗ 禁用</span>') + '</div>'
     );
 
     if (node.tags) {

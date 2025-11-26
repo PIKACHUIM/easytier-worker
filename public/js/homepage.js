@@ -699,7 +699,7 @@ function loadPublicNodes() {
   const showOffline = showOfflineToggle ? showOfflineToggle.checked : false;
   const apiEndpoint = showOffline ? '/api/public?show_offline=true' : '/api/public';
   
-  return loadNodes(apiEndpoint, 'public', 'publicNodesCache', 11);
+  return loadNodes(apiEndpoint, 'public', 'publicNodesCache', 12);
 }
 
 // 查看公共节点详情 - 使用统一的节点详情查看函数

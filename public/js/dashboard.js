@@ -112,7 +112,7 @@ document.getElementById('logout-link')?.addEventListener('click', (e) => {
 
 // 加载我的节点数据 - 使用统一的节点加载函数
 function loadMyNodes() {
-  return loadNodes('/api/nodes/my', 'my', 'myNodesCache', 13, '您还没有添加任何节点，点击上方"添加节点"按钮开始添加');
+return loadNodes('/api/nodes/my', 'my', 'myNodesCache', 14, '您还没有添加任何节点，点击上方"添加节点"按钮开始添加');
 }
 
 // 查看节点详情 - 使用统一的节点详情查看函数
@@ -191,6 +191,7 @@ window.editNode = (nodeId) => {
   document.getElementById('dashboard-max-traffic').value = node.max_traffic || '';
   document.getElementById('dashboard-reset-cycle').value = node.reset_cycle || '';
   document.getElementById('dashboard-allow-relay').checked = node.allow_relay;
+  document.getElementById('dashboard-is-enabled').checked = node.is_enabled !== 0;
   document.getElementById('dashboard-tags').value = node.tags || '';
   document.getElementById('dashboard-notes').value = node.notes || '';
   
@@ -283,9 +284,10 @@ const data = {
     max_bandwidth: parseFloat(document.getElementById('dashboard-max-bandwidth').value) || 0,
     max_connections: parseInt(document.getElementById('dashboard-max-connections').value) || 0,
     max_traffic: parseFloat(document.getElementById('dashboard-max-traffic').value) || 0,
-    reset_cycle: parseInt(document.getElementById('dashboard-reset-cycle').value) || 30,
+    reset_cycle: parseInt(document.getElementById('dashboard-reset-cycle').value) || 0,
     allow_relay: document.getElementById('dashboard-allow-relay').checked ? 1 : 0,
-    tags: document.getElementById('dashboard-tags').value,
+    is_enabled: document.getElementById('dashboard-is-enabled').checked ? 1 : 0,
+    tags: document.getElementById('dashboard-tags').value.trim(),
     notes: document.getElementById('dashboard-notes').value,
     valid_until: document.getElementById('dashboard-valid-until')?.value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   };
