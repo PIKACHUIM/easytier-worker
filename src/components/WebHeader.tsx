@@ -16,6 +16,7 @@ function WebHeader({title}: { title: string }) {
                 <a href="/settings" id="settings-link" style="display: none;">系统设置</a>
                 <a href="#" id="logout-link" style="display: none;">退出</a>
                 <a href="/login" id="login-link">登录</a>
+                <a href="/api-docs" id="api-docs-link">API文档</a>
             </nav>
         </header>
     )

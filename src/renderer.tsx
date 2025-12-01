@@ -1,14 +1,15 @@
-import { jsxRenderer } from 'hono/jsx-renderer'
+import {jsxRenderer} from 'hono/jsx-renderer'
 import chartUmd from '../public/chart.umd.min.js?raw'
 
-export const renderer = jsxRenderer(({ children }) => {
-  return (
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>EasyTier 节点管理系统</title>
-        <style dangerouslySetInnerHTML={{__html: `
+export const renderer = jsxRenderer(({children}) => {
+    return (
+        <html>
+        <head>
+            <meta charset="UTF-8"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+            <title>EasyTier 节点管理系统</title>
+            <style dangerouslySetInnerHTML={{
+                __html: `
           /* 全局样式 */
           * {
             margin: 0;
@@ -538,13 +539,13 @@ export const renderer = jsxRenderer(({ children }) => {
             color: #e65100;
           }
 
-          #login-link {
+          #login-link,#api-docs-link {
             background-color: rgba(33, 150, 243, 0.15);
             border: 1px solid rgba(33, 150, 243, 0.4);
             color: #1976d2;
             font-weight: 600;
           }
-          #login-link:hover {
+          #login-link:hover, #api-docs-link:hover {
             background-color: rgba(33, 150, 243, 0.25);
             border-color: rgba(33, 150, 243, 0.6);
             color: #1565c0;
@@ -556,7 +557,7 @@ export const renderer = jsxRenderer(({ children }) => {
             color: #c62828;
             font-weight: 600;
           }
-#logout-link:hover {
+          #logout-link:hover {
             background-color: rgba(220, 53, 69, 0.25);
             border-color: rgba(220, 53, 69, 0.6);
             color: #b71c1c;
@@ -628,8 +629,10 @@ export const renderer = jsxRenderer(({ children }) => {
               width: 100%;
             }
           }
-        `}} />
-        <script dangerouslySetInnerHTML={{__html: `
+        `
+            }}/>
+            <script dangerouslySetInnerHTML={{
+                __html: `
           // 全局工具：转义和统一节点行渲染
           window.escapeHtml = function(text) {
             if (!text) return '';
@@ -705,11 +708,13 @@ window.renderNodeRows = function(mode, nodes) {
               return '<tr>' + baseCols + (actionCol || '') + '</tr>';
             }).join('');
           };
-        `}} />
-      </head>
-      <body>{children}
-        <script dangerouslySetInnerHTML={{__html: chartUmd}} />
-        <script dangerouslySetInnerHTML={{__html: `
+        `
+            }}/>
+        </head>
+        <body>{children}
+        <script dangerouslySetInnerHTML={{__html: chartUmd}}/>
+        <script dangerouslySetInnerHTML={{
+            __html: `
           (function() {
             function updateNav() {
               try {
@@ -749,8 +754,9 @@ window.renderNodeRows = function(mode, nodes) {
 
             document.addEventListener('DOMContentLoaded', updateNav);
           })();
-        `}} />
-      </body>
-    </html>
-  )
+        `
+        }}/>
+        </body>
+        </html>
+    )
 })

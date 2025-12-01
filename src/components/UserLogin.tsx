@@ -3,17 +3,17 @@ import WebFooter from './WebFooter';
 
 function UserLogin() {
     return (
-<div className="container">
+        <div className="container">
             <WebHeader title="EasyTier 节点管理系统 - 用户登录"/>
-<div className="auth-form">
+            <div className="auth-form">
                 <h1>登录</h1>
                 <div id="login-message" style="display: none;"></div>
                 <form id="login-form">
-<div className="form-group">
+                    <div className="form-group">
                         <label for="email">邮箱</label>
                         <input type="email" id="email" name="email" required/>
                     </div>
-<div className="form-group">
+                    <div className="form-group">
                         <label for="password">密码</label>
                         <input type="password" id="password" name="password" required/>
                     </div>

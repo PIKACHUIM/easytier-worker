@@ -17,6 +17,7 @@ import WaitEmail from './components/WaitEmail'
 import HostNodes from './components/HostNodes'
 import HostSetup from './components/HostSetup'
 import HostAdmin from './components/HostAdmin'
+import ApiDocs from './components/ApiDocs'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -64,6 +65,10 @@ app.get('/settings', (c) => {
     return c.render(<HostAdmin/>)
 })
 
+app.get('/api-docs', (c) => {
+    return c.render(<ApiDocs/>)
+})
+
 app.get('/verify', (c) => {
     return c.render(<UserEmail/>)
 })
@@ -92,8 +97,8 @@ export async function scheduled(event: any, env: Env, ctx: any): Promise<void> {
         // 1. 检查并更新离线节点（10分钟未上报）
         const offlineResult = await env.DB.prepare(
             `UPDATE nodes
-             SET status = 'offline',
-                 connection_count = 0,
+             SET status            = 'offline',
+                 connection_count  = 0,
                  current_bandwidth = 0
              WHERE status = 'online'
                AND is_enabled = 1
