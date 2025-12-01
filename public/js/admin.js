@@ -222,7 +222,7 @@ window.editAdminNode = (nodeId) => {
     return;
   }
   
-// 填充表单数据
+  // 填充表单数据
   document.getElementById('admin-node-id').value = node.id;
   document.getElementById('admin-node-name').value = node.node_name;
   document.getElementById('admin-region-type').value = node.region_type;
@@ -234,7 +234,15 @@ window.editAdminNode = (nodeId) => {
   document.getElementById('admin-max-traffic').value = node.max_traffic || '';
   document.getElementById('admin-reset-cycle').value = node.reset_cycle || '';
   document.getElementById('admin-allow-relay').checked = node.allow_relay;
-  document.getElementById('admin-is-enabled').checked = node.is_enabled !== 0;
+  
+  // 处理节点启用状态
+  const isEnabledCheckbox = document.getElementById('admin-is-enabled');
+  
+  // 管理员可以自由设置启用状态
+  isEnabledCheckbox.checked = node.is_enabled === 1;
+  isEnabledCheckbox.disabled = false;
+  isEnabledCheckbox.title = '启用或禁用节点';
+  
   document.getElementById('admin-tags').value = node.tags || '';
   document.getElementById('admin-notes').value = node.notes || '';
   
@@ -317,6 +325,20 @@ window.handleAdminNodeSubmit = async (e) => {
     return;
   }
   
+// 处理节点启用和审核状态联动
+  const isEnabled = document.getElementById('admin-is-enabled')?.checked || false;
+  const isApproved = document.getElementById('admin-is-approved')?.checked || false;
+  
+  let final_is_enabled;
+  
+  if (!isApproved) {
+    // 如果未通过审核，强制设置为-1
+    final_is_enabled = -1;
+  } else {
+    // 如果通过审核，根据启用状态设置
+    final_is_enabled = isEnabled ? 1 : 0;
+  }
+  
 const data = {
     node_name: document.getElementById('admin-node-name').value,
     region_type: document.getElementById('admin-region-type').value,
@@ -329,7 +351,7 @@ const data = {
     max_traffic: parseFloat(document.getElementById('admin-max-traffic').value) || 0,
     reset_cycle: parseInt(document.getElementById('admin-reset-cycle').value) || 0,
     allow_relay: document.getElementById('admin-allow-relay').checked ? 1 : 0,
-    is_enabled: document.getElementById('admin-is-enabled').checked ? 1 : 0,
+    is_enabled: final_is_enabled,
     tags: document.getElementById('admin-tags').value.trim(),
     notes: document.getElementById('admin-notes').value,
     valid_until: document.getElementById('admin-valid-until').value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -393,6 +415,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   loadAllNodes();
   
+  // 设置节点状态联动逻辑
+  if (typeof window.setupNodeStatusToggle === 'function') {
+    window.setupNodeStatusToggle('admin');
+  }
+  
 // 模态框事件监听
   document.getElementById('admin-detail-close')?.addEventListener('click', () => {
     document.getElementById('admin-node-detail-modal').style.display = 'none';
@@ -416,6 +443,15 @@ document.getElementById('add-node-btn')?.addEventListener('click', () => {
       validLongTermCheckbox.checked = true;
       validUntilInput.value = '2999-12-31';
       validUntilInput.disabled = true;
+    }
+    
+    // 重置状态联动
+    const approvedCheckbox = document.getElementById('admin-is-approved');
+    const enabledCheckbox = document.getElementById('admin-is-enabled');
+    if (approvedCheckbox && enabledCheckbox) {
+      approvedCheckbox.checked = false;
+      enabledCheckbox.checked = false;
+      enabledCheckbox.title = '未审核状态下无法启用节点';
     }
     
     document.getElementById('admin-node-modal').style.display = 'block';

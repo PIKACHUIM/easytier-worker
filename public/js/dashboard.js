@@ -175,11 +175,13 @@ window.editNode = (nodeId) => {
   const nodes = window.myNodesCache || [];
   const node = nodes.find(n => n.id === nodeId);
   if (!node) {
+    console.error('未找到节点，节点ID:', nodeId);
     alert('未找到节点');
     return;
   }
   
-// 填充表单数据
+  // 填充表单数据
+  console.log('node:', node);
   document.getElementById('dashboard-node-id').value = node.id;
   document.getElementById('dashboard-node-name').value = node.node_name;
   document.getElementById('dashboard-region-type').value = node.region_type;
@@ -191,7 +193,15 @@ window.editNode = (nodeId) => {
   document.getElementById('dashboard-max-traffic').value = node.max_traffic || '';
   document.getElementById('dashboard-reset-cycle').value = node.reset_cycle || '';
   document.getElementById('dashboard-allow-relay').checked = node.allow_relay;
-  document.getElementById('dashboard-is-enabled').checked = node.is_enabled !== 0;
+  
+  // 处理节点审核状态（简化逻辑）
+  const isEnabledCheckbox = document.getElementById('dashboard-is-enabled');
+  
+  // 用户可以自由设置启用状态
+  isEnabledCheckbox.checked = node.is_enabled === 1;
+  isEnabledCheckbox.disabled = false;
+  isEnabledCheckbox.title = '启用或禁用节点';
+  
   document.getElementById('dashboard-tags').value = node.tags || '';
   document.getElementById('dashboard-notes').value = node.notes || '';
   
@@ -274,25 +284,47 @@ window.handleNodeSubmit = async (e) => {
     return;
   }
   
-const data = {
+// 收集表单数据
+  const networkNameEl = document.getElementById('dashboard-network-name');
+  const networkTokenEl = document.getElementById('dashboard-network-token');
+  
+  console.log('network_name元素:', networkNameEl);
+  console.log('network_token元素:', networkTokenEl);
+  
+  const networkNameValue = networkNameEl ? networkNameEl.value : 'ELEMENT_NOT_FOUND';
+  const networkTokenValue = networkTokenEl ? networkTokenEl.value : 'ELEMENT_NOT_FOUND';
+  
+  console.log('network_name原始值:', networkNameValue);
+  console.log('network_token原始值:', networkTokenValue);
+  
+  const data = {
     node_name: document.getElementById('dashboard-node-name').value,
     region_type: document.getElementById('dashboard-region-type').value,
     region_detail: document.getElementById('dashboard-region-detail').value,
-    network_name: document.getElementById('dashboard-network-name').value,
-    network_token: document.getElementById('dashboard-network-token').value,
+    network_name: networkNameValue,
+    network_token: networkTokenValue,
     connections: connections,
     max_bandwidth: parseFloat(document.getElementById('dashboard-max-bandwidth').value) || 0,
     max_connections: parseInt(document.getElementById('dashboard-max-connections').value) || 0,
     max_traffic: parseFloat(document.getElementById('dashboard-max-traffic').value) || 0,
     reset_cycle: parseInt(document.getElementById('dashboard-reset-cycle').value) || 0,
     allow_relay: document.getElementById('dashboard-allow-relay').checked ? 1 : 0,
-    is_enabled: document.getElementById('dashboard-is-enabled').checked ? 1 : 0,
     tags: document.getElementById('dashboard-tags').value.trim(),
     notes: document.getElementById('dashboard-notes').value,
     valid_until: document.getElementById('dashboard-valid-until')?.value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   };
   
+  // 只有在编辑现有节点时才发送is_enabled字段
   const nodeId = document.getElementById('dashboard-node-id').value;
+  if (nodeId) {
+    // 编辑模式：根据复选框状态发送is_enabled
+    data.is_enabled = document.getElementById('dashboard-is-enabled').checked ? 1 : 0;
+  }
+  // 创建模式：不发送is_enabled字段，让后端使用默认值-1（待审核）
+  
+  console.log('最终提交的数据:', data);
+  console.log('network_name在data中的值:', data.network_name);
+  console.log('network_token在data中的值:', data.network_token);
   
   try {
     const token = localStorage.getItem('token');

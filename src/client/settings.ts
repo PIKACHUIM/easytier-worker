@@ -222,7 +222,7 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
         return;
       }
       
-      // 渲染用户列表
+// 渲染用户列表
       usersContainer.innerHTML = `
         <table class="users-table">
           <thead>
@@ -231,6 +231,7 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
               <th>管理员</th>
               <th>超级管理员</th>
               <th>已验证</th>
+              <th>启用状态</th>
               <th>注册时间</th>
               <th>操作</th>
             </tr>
@@ -242,11 +243,20 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
                 <td>${user.is_admin ? '是' : '否'}</td>
                 <td>${user.is_super_admin ? '是' : '否'}</td>
                 <td>${user.is_verified ? '是' : '否'}</td>
+                <td>
+                  <span class="status-badge ${user.is_enabled ? 'enabled' : 'disabled'}">
+                    ${user.is_enabled ? '启用' : '禁用'}
+                  </span>
+                </td>
                 <td>${new Date(user.created_at).toLocaleString()}</td>
                 <td>
                   ${!user.is_super_admin ? `
                     <button class="btn-small" onclick="toggleAdmin('${user.email}', ${!user.is_admin})">
                       ${user.is_admin ? '撤销管理员' : '设为管理员'}
+                    </button>
+                    <button class="btn-small ${user.is_enabled ? 'btn-warning' : 'btn-success'}" 
+                            onclick="toggleUserEnable('${user.email}', ${user.is_enabled ? 0 : 1})">
+                      ${user.is_enabled ? '禁用' : '启用'}
                     </button>
                     <button class="btn-small btn-danger" onclick="deleteUser('${user.email}')">删除</button>
                   ` : '<span>-</span>'}
@@ -292,6 +302,42 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
     } catch (error) {
       console.error('设置权限失败:', error);
       messageDiv.innerHTML = '<p class="error">设置权限失败</p>';
+    }
+};
+  
+// 切换用户启用状态
+  (window as any).toggleUserEnable = async (email: string, isEnabled: number) => {
+    const action = isEnabled ? '启用' : '禁用';
+    if (!confirm(`确定要${action}用户 ${email} 吗？${isEnabled ? '' : '禁用后用户将无法登录系统。'}`)) {
+      return;
+    }
+    
+    const messageDiv = document.getElementById('message')!;
+    
+    try {
+      const response = await fetch(`/api/system/users/${email}/enable`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ is_enabled: isEnabled })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        messageDiv.innerHTML = `<p class="success">${data.message}</p>`;
+        setTimeout(() => {
+          messageDiv.innerHTML = '';
+        }, 3000);
+        loadUsers();
+      } else {
+        messageDiv.innerHTML = `<p class="error">${data.error || '操作失败'}</p>`;
+      }
+    } catch (error) {
+      console.error('设置用户状态失败:', error);
+      messageDiv.innerHTML = '<p class="error">设置用户状态失败</p>';
     }
   };
   

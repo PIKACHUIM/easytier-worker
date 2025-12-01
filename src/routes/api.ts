@@ -276,6 +276,7 @@ api.get('/public', async (c) => {
             status: node.status,
             recent_status: node.recent_status,
             allow_relay: node.allow_relay,
+            is_enabled: node.is_enabled,
             reset_date: node.reset_date
         }));
 

@@ -155,8 +155,8 @@ auth.post('/register', async (c) => {
     const isVerified = enableEmailVerification ? 0 : 1;
     const tokenToStore = enableEmailVerification ? verificationToken : null;
     
-    await c.env.DB.prepare(
-      'INSERT INTO users (email, password_hash, verification_token, is_verified) VALUES (?, ?, ?, ?)'
+await c.env.DB.prepare(
+      'INSERT INTO users (email, password_hash, verification_token, is_verified, is_enabled) VALUES (?, ?, ?, ?, 1)'
     ).bind(email, passwordHash, tokenToStore, isVerified).run();
     
     // 如果启用邮件验证，发送验证邮件（使用 Resend）
@@ -289,14 +289,23 @@ auth.post('/login', async (c) => {
     // 检查是否启用邮件验证
     const enableEmailVerification = c.env.ENABLE_EMAIL_VERIFICATION;
     
-    // 如果启用邮件验证，检查邮箱是否已验证
+// 如果启用邮件验证，检查邮箱是否已验证
     if (enableEmailVerification && !user.is_verified) {
       return c.json({ 
-        error: '请先验证您的邮箱',
+        error: '请先验证您的邮箱\n',
         details: '您的账户尚未激活，请检查邮箱中的验证邮件。\n\n' +
                  '如果没有收到邮件，可以重新注册获取新链接。',
         error_code: 'EMAIL_NOT_VERIFIED',
         email: user.email
+      }, 403);
+    }
+    
+    // 检查用户是否被禁用
+    if (!user.is_enabled) {
+      return c.json({ 
+        error: '您的账户已被管理员禁用',
+        details: '，请联系管理员。',
+        error_code: 'USER_DISABLED'
       }, 403);
     }
     

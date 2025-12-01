@@ -78,8 +78,14 @@ const response = await fetch('/api/nodes/all', {
         <div class="node-info">
           <strong>有效期至:</strong> ${new Date(node.valid_until).toLocaleString()}
         </div>
-        <div class="node-info">
+<div class="node-info">
           <strong>最后上报:</strong> ${node.last_report_at ? new Date(node.last_report_at).toLocaleString() : '从未上报'}
+        </div>
+        <div class="node-info">
+          <strong>启用状态:</strong> 
+          <span class="status-badge ${getNodeStatusClass(node.is_enabled)}">
+            ${getNodeStatusText(node.is_enabled)}
+          </span>
         </div>
         <span class="node-status ${node.status}">${node.status === 'online' ? '在线' : '离线'}</span>
         <div style="margin-top: 10px;">
@@ -120,6 +126,36 @@ const response = await fetch(`/api/nodes/${nodeId}`, {
     alert('获取详情失败，请稍后重试');
   }
 };
+
+// 获取节点状态文本
+function getNodeStatusText(isEnabled: number): string {
+  switch (isEnabled) {
+      case -1:
+          return 'ℹ️ 待审核';
+      case 0:
+          return '❌️ 已禁用';
+      case 1:
+          return '✅️ 已启用';
+      default:
+          return '❔ 未知的';
+  }
+}
+
+// 获取节点状态样式类
+function getNodeStatusClass(isEnabled: number): string {
+  switch (isEnabled) {
+    case -1:
+      return 'ℹ️ pending';
+    case 0:
+      return '❌️ disable';
+    case 1:
+      return '✅️ enabled';
+    default:
+      return '❔ unknown';
+  }
+}
+
+
 
 // 页面加载时执行
 loadAllNodes();

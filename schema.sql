@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_super_admin INTEGER DEFAULT 0, -- 超级管理员标记（环境变量中的管理员）
   is_verified INTEGER DEFAULT 0,
   verification_token TEXT,
+  is_enabled INTEGER DEFAULT 1, -- 用户是否启用（1-启用，0-禁用）
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -35,8 +36,8 @@ CREATE TABLE IF NOT EXISTS nodes (
   recent_status TEXT DEFAULT '', -- 30天内每10分钟负荷情况
   notes TEXT, -- 备注信息
   allow_relay INTEGER DEFAULT 0, -- 是否允许中转
-  is_enabled INTEGER DEFAULT 1, -- 节点是否启用（1-启用，0-禁用）
-last_report_at DATETIME, -- 最后上报时间
+  is_enabled INTEGER DEFAULT -1, -- 节点是否启用（-1-待审核，1-启用，0-禁用）
+  last_report_at DATETIME, -- 最后上报时间
   report_token TEXT, -- 节点上报验证token
   network_name TEXT, -- 测试网络名称
   network_token TEXT, -- 测试网络密码

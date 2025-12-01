@@ -54,7 +54,7 @@ chmod +x start_monitor.sh
 #### 方法 2: 直接运行 Python
 
 ```bash
-python3 monitor.py https://your-api.workers.dev your_jwt_token_here
+python3 monitor_old.py https://your-api.workers.dev your_jwt_token_here
 ```
 
 ### 验证运行
@@ -106,7 +106,7 @@ python3 monitor.py https://your-api.workers.dev your_jwt_token_here
 ### 基本用法
 
 ```bash
-python monitor.py <API_URL> <JWT_TOKEN>
+python monitor_old.py <API_URL> <JWT_TOKEN>
 ```
 
 ### 参数说明
@@ -119,10 +119,10 @@ python monitor.py <API_URL> <JWT_TOKEN>
 
 ```bash
 # Windows
-python monitor.py https://api.example.com your_jwt_token_here
+python monitor_old.py https://api.example.com your_jwt_token_here
 
 # Linux
-python3 monitor.py https://api.example.com your_jwt_token_here --log-level DEBUG
+python3 monitor_old.py https://api.example.com your_jwt_token_here --log-level DEBUG
 ```
 
 ### 运行测试
@@ -174,7 +174,7 @@ tail -f monitor.log
 
 ```bash
 # 查找进程
-ps aux | grep monitor.py
+ps aux | grep monitor_old.py
 
 # 停止进程
 kill <PID>
@@ -357,7 +357,7 @@ Monitor 程序会调用本地 service 的以下接口：
 **A:** 启动时添加 `--log-level DEBUG` 参数：
 
 ```bash
-python monitor.py https://api.example.com your_token --log-level DEBUG
+python monitor_old.py https://api.example.com your_token --log-level DEBUG
 ```
 
 ### Q: 如何查看帮助信息
@@ -365,7 +365,7 @@ python monitor.py https://api.example.com your_token --log-level DEBUG
 **A:** 运行：
 
 ```bash
-python monitor.py --help
+python monitor_old.py --help
 ```
 
 输出：

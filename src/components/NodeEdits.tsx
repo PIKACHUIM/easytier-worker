@@ -33,7 +33,7 @@ function NodeEdits({
                         />
                     </div>
 
-<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
                         <div className="form-group">
                             <label htmlFor={`${prefix}region-type`}>地域类型 *</label>
                             <select id={`${prefix}region-type`} required>
@@ -70,7 +70,7 @@ function NodeEdits({
                         </div>
                     </div>
 
-<div className="form-group">
+                    <div className="form-group">
                         <label>连接方式 *</label>
                         <div id={`${prefix}connections-container`} style={{marginBottom: '10px'}}></div>
                         <button
@@ -109,7 +109,7 @@ function NodeEdits({
                         </div>
                     </div>
 
-<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
                         <div className="form-group">
                             <label htmlFor={`${prefix}max-traffic`}>最大流量 (GB) *</label>
                             <input
@@ -151,28 +151,80 @@ function NodeEdits({
                         </div>
                     </div>
 
-                    <div className="form-group">
-                        <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                            <input
-                                type="checkbox"
-                                id={`${prefix}allow-relay`}
-                                style={{width: 'auto'}}
-                            />
-                            允许中转
-                        </label>
+<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px'}}>
+                        <div className="form-group">
+                            <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                <input
+                                    type="checkbox"
+                                    id={`${prefix}allow-relay`}
+                                    style={{width: 'auto'}}
+                                />
+                                允许中转
+                            </label>
+                        </div>
+
+                        <div className="form-group">
+                            <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                <input
+                                    type="checkbox"
+                                    id={`${prefix}is-enabled`}
+                                    style={{width: 'auto'}}
+                                    defaultChecked={mode === 'dashboard'} // 管理员模式下默认不选中
+                                />
+                                节点启用
+                            </label>
+                        </div>
+
+                        <div className="form-group">
+                            <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                <input
+                                    type="checkbox"
+                                    id={`${prefix}is-approved`}
+                                    style={{width: 'auto', cursor: mode === 'admin' ? 'pointer' : 'not-allowed'}}
+                                    disabled={mode !== 'admin'}
+                                />
+                                通过审核
+                            </label>
+                        </div>
                     </div>
 
-                    <div className="form-group">
-                        <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                            <input
-                                type="checkbox"
-                                id={`${prefix}is-enabled`}
-                                style={{width: 'auto'}}
-                                defaultChecked
-                            />
-                            节点启用（禁用后不在公共节点中显示）
-                        </label>
-                    </div>
+                    {/* 添加状态联动逻辑的脚本 */}
+                    {mode === 'admin' && (
+                        <script dangerouslySetInnerHTML={{
+                            __html: `
+                                // 节点启用和审核状态联动逻辑
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    const enabledCheckbox = document.getElementById('admin-is-enabled');
+                                    const approvedCheckbox = document.getElementById('admin-is-approved');
+                                    
+                                    if (enabledCheckbox && approvedCheckbox) {
+                                        // 当节点启用状态改变时
+                                        enabledCheckbox.addEventListener('change', function() {
+                                            if (this.checked) {
+                                                // 如果启用节点，自动勾选通过审核
+                                                approvedCheckbox.checked = true;
+                                                approvedCheckbox.disabled = false;
+                                            } else {
+                                                // 如果禁用节点，保持审核状态不变（允许管理员手动控制）
+                                                // approvedCheckbox 状态保持不变
+                                            }
+                                        });
+                                        
+                                        // 当审核状态改变时
+                                        approvedCheckbox.addEventListener('change', function() {
+                                            if (!this.checked) {
+                                                // 如果取消审核，自动禁用节点
+                                                enabledCheckbox.checked = false;
+                                            } else {
+                                                // 如果通过审核，可以选择是否启用节点
+                                                enabledCheckbox.disabled = false;
+                                            }
+                                        });
+                                    }
+                                });
+                            `
+                        }} />
+                    )}
 
                     <div className="form-group">
                         <label htmlFor={`${prefix}tags`}>标签</label>

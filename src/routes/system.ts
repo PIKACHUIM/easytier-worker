@@ -37,7 +37,7 @@ system.post('/import-schema', async (c) => {
     const { jwt_secret }: { jwt_secret: string } = await c.req.json();
     
     // 验证JWT密钥
-    if (jwt_secret !== c.env.JWT_SECRET) {
+if (jwt_secret !== c.env.JWT_SECRET) {
       return c.json({ error: 'JWT密钥验证失败' }, 401);
     }
 
@@ -52,6 +52,7 @@ system.post('/import-schema', async (c) => {
         is_super_admin INTEGER DEFAULT 0,
         is_verified INTEGER DEFAULT 0,
         verification_token TEXT,
+        is_enabled INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
 // 创建节点表
@@ -157,7 +158,7 @@ system.post('/initialize', async (c) => {
       return c.json({ error: '密码长度至少为 6 位' }, 400);
     }
     
-    // 第一步：导入数据库结构
+// 第一步：导入数据库结构
     const schemaSQL = `
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
@@ -168,6 +169,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_super_admin INTEGER DEFAULT 0,
   is_verified INTEGER DEFAULT 0,
   verification_token TEXT,
+is_enabled INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -195,7 +197,8 @@ CREATE TABLE IF NOT EXISTS nodes (
   status TEXT DEFAULT 'offline',
   recent_status TEXT DEFAULT '',
   notes TEXT,
-  allow_relay INTEGER DEFAULT 0,
+allow_relay INTEGER DEFAULT 0,
+  is_enabled INTEGER DEFAULT -1,
   last_report_at DATETIME,
   report_token TEXT,
   network_name TEXT,
@@ -240,9 +243,10 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         is_super_admin INTEGER DEFAULT 0,
         is_verified INTEGER DEFAULT 0,
         verification_token TEXT,
+        is_enabled INTEGER DEFAULT -1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
-// 创建节点表
+        // 创建节点表
       `CREATE TABLE IF NOT EXISTS nodes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_email TEXT NOT NULL,
@@ -267,7 +271,7 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         recent_status TEXT DEFAULT '',
         notes TEXT,
         allow_relay INTEGER DEFAULT 0,
-        is_enabled INTEGER DEFAULT 1,
+        is_enabled INTEGER DEFAULT -1,
         last_report_at DATETIME,
         report_token TEXT,
         network_name TEXT,
@@ -310,9 +314,30 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
     // 第二步：创建超级管理员账户
     const passwordHash = await hashPassword(password);
     
-    await c.env.DB.prepare(
-      'INSERT INTO users (email, password_hash, is_admin, is_super_admin, is_verified) VALUES (?, ?, 1, 1, 1)'
+await c.env.DB.prepare(
+      'INSERT INTO users (email, password_hash, is_admin, is_super_admin, is_verified, is_enabled) VALUES (?, ?, 1, 1, 1, 1)'
     ).bind(email, passwordHash).run();
+    
+    // 数据库迁移：确保现有表有新字段
+    try {
+      // 检查并添加users表的is_enabled字段
+      await c.env.DB.prepare(`
+        ALTER TABLE users ADD COLUMN is_enabled INTEGER DEFAULT 1
+      `).run();
+    } catch (error) {
+      // 字段可能已存在，忽略错误
+      console.log('users表is_enabled字段已存在或添加失败:', error);
+    }
+    
+    try {
+      // 检查并添加nodes表的is_enabled字段
+      await c.env.DB.prepare(`
+        ALTER TABLE nodes ADD COLUMN is_enabled INTEGER DEFAULT -1
+      `).run();
+    } catch (error) {
+      // 字段可能已存在，忽略错误
+      console.log('nodes表is_enabled字段已存在或添加失败:', error);
+    }
     
     return c.json({ 
       message: '系统初始化成功',
@@ -405,12 +430,12 @@ system.get('/users', async (c) => {
       return c.json({ error: '需要管理员权限' }, 403);
     }
     
-    // 获取所有用户（不包含密码）
+// 获取所有用户（不包含密码）
     const users = await c.env.DB.prepare(
-      'SELECT id, email, is_admin, is_super_admin, is_verified, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, email, is_admin, is_super_admin, is_verified, is_enabled, created_at FROM users ORDER BY created_at DESC'
     ).all();
     
-    return c.json(users.results);
+return c.json(users.results || users);
   } catch (error) {
     console.error('获取用户列表错误:', error);
     return c.json({ error: '获取用户列表失败' }, 500);
@@ -461,6 +486,66 @@ system.put('/users/:email/admin', async (c) => {
   } catch (error) {
     console.error('设置用户权限错误:', error);
     return c.json({ error: '设置用户权限失败' }, 500);
+  }
+});
+
+// 启用/禁用用户（需要管理员权限）
+system.put('/users/:email/enable', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    if (!payload || !payload.is_admin) {
+      return c.json({ error: '需要管理员权限' }, 403);
+    }
+    
+    const email = c.req.param('email');
+    const { is_enabled } = await c.req.json();
+    
+    if (typeof is_enabled !== 'number' || (is_enabled !== 0 && is_enabled !== 1)) {
+      return c.json({ error: 'is_enabled 必须为 0（禁用）或 1（启用）' }, 400);
+    }
+    
+    // 检查用户是否存在
+    const user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE email = ?'
+    ).bind(email).first();
+    
+    if (!user) {
+      return c.json({ error: '用户不存在' }, 404);
+    }
+    
+// 不能禁用自己
+    if (email === payload.email && is_enabled === 0) {
+      return c.json({ error: '不能禁用自己的账户' }, 400);
+    }
+    
+    // 普通管理员不能操作超级管理员
+    if (!payload.is_super_admin && user.is_super_admin) {
+      return c.json({ error: '普通管理员不能操作超级管理员账户' }, 403);
+    }
+    
+    // 更新用户状态
+    await c.env.DB.prepare(
+      'UPDATE users SET is_enabled = ? WHERE email = ?'
+    ).bind(is_enabled, email).run();
+    
+    // 如果是禁用操作，可能需要踢出用户（这里只是更新状态，实际的踢出逻辑需要在中间件中实现）
+    if (is_enabled === 0) {
+      console.log(`用户 ${email} 已被禁用`);
+    }
+    
+    return c.json({ 
+      message: `已${is_enabled ? '启用' : '禁用'}用户 ${email}` 
+    });
+  } catch (error) {
+    console.error('设置用户状态错误:', error);
+    return c.json({ error: '设置用户状态失败' }, 500);
   }
 });
 

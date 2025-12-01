@@ -200,12 +200,16 @@ return `
         <div class="progress-text">${usedTraffic.toFixed(2)} / ${maxTraffic === 0 ? '无限制' : maxTraffic.toFixed(2) + ' GB'}</div>
       </td>
 <td>${connectionInfo}</td>
-      <td>${node.allow_relay ? '是' : '否'}</td>
-      <td>${node.is_enabled !== 0 ? '<span style="color: #4caf50;">✓</span>' : '<span style="color: #f44336;">✗</span>'}</td>
+<td>${node.allow_relay ? '是' : '否'}</td>
+      <td>
+        <span class="status-badge ${getNodeStatusClass(node.is_enabled)}">
+          ${getNodeStatusText(node.is_enabled)}
+        </span>
+      </td>
       ${mode === 'admin' ? `<td>${escapeHtml(node.user_email || '-')}</td>` : ''}
       <td>${escapeHtml(node.tags || '-')}</td>
       <td>${escapeHtml(node.notes || '-')}</td>
-      ${mode === 'my' ? `<td>
+${mode === 'my' ? `<td>
           <button class="btn-small" onclick="viewNodeDetail(${node.id})">详情</button>
           <button class="btn-small" onclick="editNode(${node.id})">编辑</button>
           <button class="btn-small btn-danger" onclick="deleteNode(${node.id})">删除</button>
@@ -220,6 +224,36 @@ return `
   `;
     }).join('');
 }
+
+// 获取节点状态文本
+function getNodeStatusText(isEnabled) {
+  switch (isEnabled) {
+    case -1:
+      return 'ℹ️ 待审核';
+    case 0:
+      return '❌️ 已禁用';
+    case 1:
+      return '✅️ 已启用';
+    default:
+      return '❔ 未知的';
+  }
+}
+
+// 获取节点状态样式类
+function getNodeStatusClass(isEnabled) {
+  switch (isEnabled) {
+      case -1:
+          return 'ℹ️ pending';
+      case 0:
+          return '❌️ disable';
+      case 1:
+          return '✅️ enabled';
+      default:
+          return '❔ unknown';
+  }
+}
+
+
 
 // 连接方式管理类
 class ConnectionManager {
@@ -383,7 +417,10 @@ const content = [
     content.push(
         '    <div class="node-info"><strong>当前状态:</strong> <span class="node-status ' + node.status + '">' + (node.status === 'online' ? '在线' : '离线') + '</span></div>',
         '    <div class="node-info"><strong>允许中转:</strong> ' + (node.allow_relay ? '是' : '否') + '</div>',
-        '    <div class="node-info"><strong>节点启用:</strong> ' + (node.is_enabled !== 0 ? '<span style="color: #4caf50;">✓ 启用</span>' : '<span style="color: #f44336;">✗ 禁用</span>') + '</div>'
+'    <div class="node-info"><strong>节点启用:</strong> ' + 
+        (node.is_enabled === -1 ? '<span style="color: #ff9800;">ℹ️</span>' :
+         node.is_enabled === 1 ? '<span style="color: #4caf50;">✓</span>' :
+         '<span style="color: #f44336;">✗</span>') + '</div>'
     );
 
     if (node.tags) {
@@ -572,8 +609,56 @@ function showCopyError(element) {
     }, 2000);
 }
 
+// 设置节点状态联动逻辑
+window.setupNodeStatusToggle = function(mode = 'admin') {
+    const prefix = mode === 'admin' ? 'admin-' : 'dashboard-';
+    const enabledCheckbox = document.getElementById(`${prefix}is-enabled`);
+    const approvedCheckbox = document.getElementById(`${prefix}is-approved`);
+    
+    if (!enabledCheckbox || !approvedCheckbox) {
+        console.warn('找不到节点状态复选框元素');
+        return;
+    }
+    
+    // 当节点启用状态改变时
+    enabledCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            // 如果启用节点，自动勾选通过审核
+            approvedCheckbox.checked = true;
+            approvedCheckbox.disabled = false;
+            approvedCheckbox.title = '节点启用时自动通过审核';
+        } else {
+            // 如果禁用节点，保持审核状态不变（允许管理员手动控制）
+            approvedCheckbox.title = '审核状态可独立控制';
+        }
+    });
+    
+    // 当审核状态改变时
+    approvedCheckbox.addEventListener('change', function() {
+        if (!this.checked) {
+            // 如果取消审核，自动禁用节点
+            enabledCheckbox.checked = false;
+            enabledCheckbox.title = '未审核状态下无法启用节点';
+        } else {
+            // 如果通过审核，可以选择是否启用节点
+            enabledCheckbox.disabled = false;
+            enabledCheckbox.title = '通过审核后可选择是否启用节点';
+        }
+    });
+    
+    // 初始化状态提示
+    if (approvedCheckbox.checked) {
+        enabledCheckbox.title = '通过审核后可选择是否启用节点';
+    } else {
+        enabledCheckbox.title = '未审核状态下无法启用节点';
+    }
+    
+    console.log(`节点状态联动逻辑已初始化 (${mode}模式)`);
+};
+
 // 导出新增函数到全局作用域
 window.copyToClipboard = copyToClipboard;
 window.fallbackCopyTextToClipboard = fallbackCopyTextToClipboard;
 window.showCopySuccess = showCopySuccess;
 window.showCopyError = showCopyError;
+window.setupNodeStatusToggle = window.setupNodeStatusToggle;

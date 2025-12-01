@@ -31,20 +31,20 @@ function NodeTable({
             <div className="nodes-table-container">
                 <table className="nodes-table" id={tableId}>
                     <thead>
-<tr>
-                        <th style={{textAlign: 'center', 'min-width': '100px'}}>节点名称</th>
+                    <tr>
+                        <th style={{textAlign: 'center', 'min-width': '200px'}}>节点名称</th>
                         <th style={{textAlign: 'center', 'min-width': '70px'}}>状态</th>
-                        <th style={{textAlign: 'center', 'min-width': '120px'}}>地域</th>
+                        <th style={{textAlign: 'center', 'min-width': '160px'}}>地域</th>
                         <th style={{textAlign: 'center', 'min-width': '150px'}}>带宽</th>
                         <th style={{textAlign: 'center', 'min-width': '150px'}}>连接数</th>
                         <th style={{textAlign: 'center', 'min-width': '150px'}}>流量</th>
                         <th style={{textAlign: 'center', 'min-width': '150px'}}>连接信息</th>
                         <th style={{textAlign: 'center', 'min-width': '70px'}}>中转</th>
-                        <th style={{textAlign: 'center', 'min-width': '80px'}}>启用</th>
+                        <th style={{textAlign: 'center', 'min-width': '100px'}}>状态</th>
                         {mode === 'admin' && <th style={{textAlign: 'center', 'min-width': '150px'}}>用户邮箱</th>}
                         <th style={{textAlign: 'center', 'min-width': '70px'}}>标签</th>
                         <th style={{textAlign: 'center', width: '100%'}}>备注</th>
-                        <th style={{textAlign: 'center', 'min-width': '200px'}}>操作</th>
+                        <th style={{textAlign: 'center', 'min-width': '250px'}}>操作</th>
                     </tr>
                     </thead>
                     <tbody id={containerId}>

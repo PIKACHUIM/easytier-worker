@@ -78,7 +78,8 @@ export async function authMiddleware(c: AppContext, next: () => Promise<void>) {
         const payload: JWTPayload = {
             email: 'system@easytier',
             is_admin: true,
-            is_super_admin: true
+            is_super_admin: true,
+            is_enabled: 1
         };
         c.set('user', payload);
         await next();
@@ -89,6 +90,29 @@ export async function authMiddleware(c: AppContext, next: () => Promise<void>) {
     
     if (!payload) {
         return c.json({error: '无效的令牌'}, 401);
+    }
+
+    // 检查用户是否启用
+    if (payload.email !== 'system@easytier') {
+        try {
+            const user = await c.env.DB.prepare(
+                'SELECT is_enabled FROM users WHERE email = ?'
+            ).bind(payload.email).first();
+            
+            if (!user) {
+                return c.json({error: '用户不存在'}, 401);
+            }
+            
+            if (user.is_enabled === 0) {
+                return c.json({error: '用户账户已被禁用，请联系管理员'}, 403);
+            }
+            
+            // 更新payload中的is_enabled状态
+            payload.is_enabled = user.is_enabled;
+        } catch (error) {
+            console.error('检查用户状态失败:', error);
+            return c.json({error: '认证失败'}, 500);
+        }
     }
 
     c.set('user', payload);

@@ -3,7 +3,7 @@
 // 检查用户登录状态和权限
 async function checkSettingsAuth() {
     const token = localStorage.getItem('token');
-    
+
     if (!token) {
         alert('请先登录');
         window.location.href = '/login';
@@ -17,7 +17,7 @@ async function checkSettingsAuth() {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (!response.ok) {
             if (response.status === 401) {
                 alert('登录已过期，请重新登录');
@@ -28,19 +28,19 @@ async function checkSettingsAuth() {
             }
             throw new Error('获取用户信息失败');
         }
-        
+
         const user = await response.json();
-        
+
         // 更新localStorage中的用户信息
         localStorage.setItem('user', JSON.stringify(user));
-        
+
         // 检查管理员权限
         if (!user.is_admin && !user.is_super_admin) {
             alert('您的管理员权限已被撤销，无法访问此页面');
             window.location.href = '/dashboard';
             return false;
         }
-        
+
         return user;
     } catch (error) {
         console.error('验证用户权限失败:', error);
@@ -103,6 +103,7 @@ async function loadUsers() {
           <thead>
             <tr>
               <th>邮箱</th>
+              <th>状态</th>
               <th>管理员</th>
               <th>超级管理员</th>
               <th>已验证</th>
@@ -114,6 +115,11 @@ async function loadUsers() {
             ${users.map(user => `
               <tr>
                 <td>${escapeHtml(user.email)}</td>
+                <td>
+                  <span class="status-badge ${getUserStatusClass(user.is_enabled)}">
+                    ${getUserStatusText(user.is_enabled)}
+                  </span>
+                </td>
                 <td>${user.is_admin ? '是' : '否'}</td>
                 <td>${user.is_super_admin ? '是' : '否'}</td>
                 <td>${user.is_verified ? '是' : '否'}</td>
@@ -122,6 +128,9 @@ async function loadUsers() {
                   ${!user.is_super_admin ? `
                     <button class="btn-small" onclick="toggleAdmin('${escapeHtml(user.email)}', ${user.is_admin})">
                       ${user.is_admin ? '撤销管理员' : '设为管理员'}
+                    </button>
+                    <button class="btn-small ${user.is_enabled ? 'btn-warning' : 'btn-success'}" onclick="toggleUserStatus('${escapeHtml(user.email)}', ${user.is_enabled})">
+                      ${user.is_enabled ? '禁用用户' : '启用用户'}
                     </button>
                     <button class="btn-small btn-danger" onclick="deleteUser('${escapeHtml(user.email)}')">删除</button>
                   ` : '<span>-</span>'}
@@ -135,6 +144,65 @@ async function loadUsers() {
     } catch (error) {
         console.error('加载用户列表失败:', error);
         document.getElementById('users-container').innerHTML = '<p>加载失败</p>';
+    }
+}
+
+// 切换用户状态
+window.toggleUserStatus = async (email, isEnabled) => {
+    const action = isEnabled ? '禁用' : '启用';
+    if (!confirm(`确定要${action}用户 ${email} 吗？${isEnabled ? '禁用后用户将无法登录系统。' : ''}`)) {
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/system/users/${encodeURIComponent(email)}/enable`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({is_enabled: isEnabled ? 0 : 1})
+        });
+
+        if (response.ok) {
+            alert(`${action}成功`);
+            loadUsers();
+        } else {
+            const result = await response.json();
+            alert(result.error || `${action}失败`);
+        }
+    } catch (error) {
+        console.error(`${action}失败:`, error);
+        alert('网络错误，请稍后重试');
+    }
+};
+
+// 获取用户状态文本
+function getUserStatusText(isEnabled) {
+    switch (isEnabled) {
+        case -1:
+            return 'ℹ️ 待审核';
+        case 0:
+            return '❌️ 已禁用';
+        case 1:
+            return '✅️ 已启用';
+        default:
+            return '❔ 未知的';
+    }
+}
+
+// 获取用户状态样式类
+function getUserStatusClass(isEnabled) {
+    switch (isEnabled) {
+        case -1:
+            return 'ℹ️ pending';
+        case 0:
+            return '❌️ disable';
+        case 1:
+            return '✅️ enabled';
+        default:
+            return '❔ unknown';
     }
 }
 
@@ -297,12 +365,12 @@ window.saveSettings = async (e) => {
     submitBtn.textContent = '保存中...';
 
     const data = {
-resend_api_key: document.getElementById('resend-api-key').value,
-resend_from_email: document.getElementById('resend-from-email').value,
-resend_from_domain: document.getElementById('resend-from-domain').value,
-site_name: document.getElementById('site-name').value,
-site_url: document.getElementById('site-url').value
-}
+            resend_api_key: document.getElementById('resend-api-key').value,
+            resend_from_email: document.getElementById('resend-from-email').value,
+            resend_from_domain: document.getElementById('resend-from-domain').value,
+            site_name: document.getElementById('site-name').value,
+            site_url: document.getElementById('site-url').value
+        }
     ;
 
     try {

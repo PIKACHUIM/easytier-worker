@@ -146,34 +146,34 @@ async function updateStatsHistory(db: any, onlineNodes: number, connections: num
         // 获取当前历史数据
         const currentHistory = await getStatsHistory(db);
 
-        // 添加新数据点（144个点 = 24小时，每10分钟一个点）
-        const maxPoints = 144;
+        // 添加新数据点（1008个点 = 7天，每10分钟一个点）
+        const maxPoints = 1008;
 
-        // 更新在线节点历史
+        // 更新在线节点历史 - 改为简单数组格式
         const newOnlineNodesHistory = [
             ...currentHistory.online_nodes.slice(-(maxPoints - 1)),
-            {value: onlineNodes, timestamp}
+            onlineNodes
         ];
 
-        // 更新连接数历史
+        // 更新连接数历史 - 改为简单数组格式
         const newConnectionsHistory = [
             ...currentHistory.connections.slice(-(maxPoints - 1)),
-            {value: connections, timestamp}
+            connections
         ];
 
-        // 更新带宽历史
+        // 更新带宽历史 - 改为简单数组格式
         const newBandwidthHistory = [
             ...currentHistory.bandwidth.slice(-(maxPoints - 1)),
-            {value: bandwidth, timestamp}
+            bandwidth
         ];
 
-        // 更新阶梯带宽历史
+        // 更新阶梯带宽历史 - 改为简单数组格式
         const newTierbandHistory = [
             ...currentHistory.tierband.slice(-(maxPoints - 1)),
-            {value: tierband, timestamp}
+            tierband
         ];
 
-        // 更新数据库
+// 更新数据库 - 存储为简单数组格式
         await db.prepare(
             'UPDATE confs SET setting_value = ?, updated_at = ? WHERE setting_key = ?'
         ).bind(JSON.stringify(newOnlineNodesHistory), timestamp, 'stats_online_nodes_history').run();
