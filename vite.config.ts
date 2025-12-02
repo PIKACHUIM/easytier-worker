@@ -23,7 +23,7 @@ export default defineConfig({
         ssr: true,
         minify: true,
         rollupOptions: {
-            input: './src/index.tsx',
+            input: './src/cfapp.ts',
             output: {
                 entryFileNames: 'index.js',
                 format: 'es'
