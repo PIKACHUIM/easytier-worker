@@ -111,13 +111,13 @@ nodes.post('/', authMiddleware, async (c) => {
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
 
-// 插入节点
+        // 插入节点
         const result = await c.env.DB.prepare(`
             INSERT INTO nodes (user_email, node_name, region_type, region_detail, connections,
                                tier_bandwidth, max_bandwidth, max_traffic, reset_cycle, reset_date,
                                max_connections, tags, valid_until, notes, allow_relay, is_enabled, report_token,
-                               network_name, network_token)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               network_name, network_token, offline_notify)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
             user.email,
             data.node_name,
@@ -137,7 +137,8 @@ nodes.post('/', authMiddleware, async (c) => {
             (data.is_enabled ?? -1), // 默认为-1，表示待审核
             reportToken,
             data.network_name || '',
-            data.network_token || ''
+            data.network_token || '',
+            0 // 默认不通知
         ).run();
 
         return c.json({
@@ -270,6 +271,10 @@ nodes.put('/:id', authMiddleware, async (c) => {
         if (data.network_token !== undefined) {
             updates.push('network_token = ?');
             values.push(data.network_token);
+        }
+        if (data.offline_notify !== undefined) {
+            updates.push('offline_notify = ?');
+            values.push(data.offline_notify);
         }
         if (data.correction_traffic !== undefined && user.is_admin) {
             // 只有管理员可以修改修正流量

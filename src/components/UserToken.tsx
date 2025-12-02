@@ -48,6 +48,68 @@ className="btn-primary"
             </p>
           </div>
           
+          {/* 个人信息区域 */}
+<div className="profile-section" style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 30px;">
+            <h3 style="margin-bottom: 20px; color: #667eea;">个人信息</h3>
+            
+            <form id="profile-form" onsubmit="return false;">
+<div className="form-group" style="margin-bottom: 20px;">
+                <label for="qq-number" style="display: block; margin-bottom: 8px; color: #555; font-weight: 500;">
+                  QQ号
+                </label>
+                <input 
+                  type="text" 
+                  id="qq-number" 
+                  placeholder="请输入QQ号（用于接收通知）"
+                  style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;"
+                />
+                <small style="color: #666; font-size: 12px;">暂不支持QQ通知，此字段仅用于记录</small>
+              </div>
+              
+<div className="form-group" style="margin-bottom: 20px;">
+                <label for="wechat-uid" style="display: block; margin-bottom: 8px; color: #555; font-weight: 500;">
+                  微信UID（WxPusher）
+                </label>
+                <input 
+                  type="text" 
+                  id="wechat-uid" 
+                  placeholder="请输入WxPusher的UID"
+                  style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;"
+                />
+                <small style="color: #666; font-size: 12px;">
+                  获取方式：关注WxPusher公众号后，发送"我的UID"获取
+                  <a href="https://wxpusher.zjiecode.com" target="_blank" style="color: #667eea; margin-left: 5px;">了解更多</a>
+                </small>
+              </div>
+              
+<div className="form-group" style="margin-bottom: 20px;">
+                <label for="telegram-id" style="display: block; margin-bottom: 8px; color: #555; font-weight: 500;">
+                  Telegram ID
+                </label>
+                <input 
+                  type="text" 
+                  id="telegram-id" 
+                  placeholder="请输入Telegram Chat ID"
+                  style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;"
+                />
+                <small style="color: #666; font-size: 12px;">
+                  获取方式：向 @userinfobot 发送任意消息，获取您的Chat ID
+                </small>
+              </div>
+              
+<div className="form-group">
+                <button 
+                  type="submit" 
+                  onclick="updateProfile()"
+className="btn-primary"
+                  style="padding: 10px 30px;"
+                >
+                  保存个人信息
+                </button>
+              </div>
+            </form>
+          </div>
+          
           {/* 修改密码区域 */}
 <div className="password-section" style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <h3 style="margin-bottom: 20px; color: #667eea;">修改密码</h3>

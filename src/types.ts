@@ -10,6 +10,9 @@ export interface User {
     is_verified: number;
     verification_token?: string;
     is_enabled: number; // 用户启用状态：1-启用，0-禁用，默认1
+    qq_number?: string; // QQ号
+    wechat_uid?: string; // 微信UID（WxPusher的UID）
+    telegram_id?: string; // Telegram ID
     created_at: string;
 }
 
@@ -59,6 +62,8 @@ export interface Node {
     report_token: string;
     network_name?: string;
     network_token?: string;
+    offline_notify: number; // 节点首次下线通知选项：0-不通知，1-通知微信，2-通知邮箱，3-TG通知
+    last_offline_notify_at?: string; // 最后一次下线通知时间
 }
 
 // 数据库中的节点类型（connections 是字符串）
@@ -93,11 +98,13 @@ export interface NodeCreateRequest {
     is_enabled?: number; // 节点审核状态：-1-未审核，0-审核但未启用，1-通过审核且启用
     network_name?: string;
     network_token?: string;
+    offline_notify?: number; // 节点首次下线通知选项：0-不通知，1-通知微信，2-通知邮箱，3-TG通知
 }
 
 export interface NodeUpdateRequest extends Partial<NodeCreateRequest> {
     correction_traffic?: number;
     tier_bandwidth?: number;
+    offline_notify?: number;
 }
 
 export interface NodeReportRequest {
@@ -148,6 +155,10 @@ export interface SystemSettingsUpdateRequest {
     resend_from_domain?: string;
     site_name?: string;
     site_url?: string;
+    telegram_bot_token?: string;
+    telegram_bot_id?: string;
+    wxpusher_app_token?: string;
+    wxpusher_app_id?: string;
 }
 
 // 用户管理请求类型

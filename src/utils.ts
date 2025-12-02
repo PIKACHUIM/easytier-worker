@@ -284,3 +284,113 @@ export function formatDateShort(dateStr?: string): string {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('zh-CN');
 }
+
+// WxPusher 通知函数
+export async function sendWxPusherNotification(
+    appToken: string,
+    uid: string,
+    content: string,
+    summary?: string,
+    url?: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+        if (!appToken || !uid) {
+            return {
+                success: false,
+                error: 'WxPusher 配置不完整'
+            };
+        }
+
+        const response = await fetch('https://wxpusher.zjiecode.com/api/send/message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                appToken: appToken,
+                content: content,
+                summary: summary || '节点通知',
+                contentType: 1, // 1=文本，2=html，3=markdown
+                uids: [uid],
+                url: url || ''
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.code === 1000) {
+            return { success: true, message: 'WxPusher 通知发送成功' };
+        } else {
+            return {
+                success: false,
+                error: result.msg || 'WxPusher 通知发送失败'
+            };
+        }
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : '未知错误'
+        };
+    }
+}
+
+// Telegram Bot 通知函数
+export async function sendTelegramNotification(
+    botToken: string,
+    chatId: string,
+    message: string,
+    parseMode: 'HTML' | 'Markdown' | 'MarkdownV2' = 'HTML'
+): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+        if (!botToken || !chatId) {
+            return {
+                success: false,
+                error: 'Telegram Bot 配置不完整'
+            };
+        }
+
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: message,
+                parse_mode: parseMode
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.ok) {
+            return { success: true, message: 'Telegram 通知发送成功' };
+        } else {
+            return {
+                success: false,
+                error: result.description || 'Telegram 通知发送失败'
+            };
+        }
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : '未知错误'
+        };
+    }
+}
+
+// 生成节点下线通知内容
+export function generateOfflineNotificationContent(
+    nodeName: string,
+    nodeRegion: string,
+    offlineTime: string,
+    siteUrl: string
+): { text: string; html: string; markdown: string } {
+    const text = `【节点下线通知】\n\n节点名称：${nodeName}\n节点地区：${nodeRegion}\n下线时间：${offlineTime}\n\n请及时检查节点状态。\n\n查看详情：${siteUrl}/dashboard`;
+    
+    const html = `<b>【节点下线通知】</b>\n\n<b>节点名称：</b>${nodeName}\n<b>节点地区：</b>${nodeRegion}\n<b>下线时间：</b>${offlineTime}\n\n请及时检查节点状态。\n\n<a href="${siteUrl}/dashboard">查看详情</a>`;
+    
+    const markdown = `**【节点下线通知】**\n\n**节点名称：**${nodeName}\n**节点地区：**${nodeRegion}\n**下线时间：**${offlineTime}\n\n请及时检查节点状态。\n\n[查看详情](${siteUrl}/dashboard)`;
+    
+    return { text, html, markdown };
+}

@@ -49,6 +49,34 @@ function HostAdmin(): JSX.Element {
                             <input type="url" id="site-url" name="site-url"/>
                             <small>用于生成邮件中的链接，例如: https://yourdomain.com，后面不包含"/"或"?"</small>
                         </div>
+                        
+                        <br/><br/><br/>
+                        <h2>通知服务配置</h2>
+                        
+                        <h3 style="margin-top: 20px; color: #667eea;">Telegram Bot 配置</h3>
+                        <div className="form-group">
+                            <label htmlFor="telegram-bot-token">Telegram Bot Token</label>
+                            <input type="password" id="telegram-bot-token" name="telegram-bot-token"/>
+                            <small>通过 <a href="https://t.me/BotFather" target="_blank">@BotFather</a> 创建Bot并获取Token</small>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="telegram-bot-id">Telegram Bot ID</label>
+                            <input type="text" id="telegram-bot-id" name="telegram-bot-id"/>
+                            <small>Bot的用户名，例如: @YourBot</small>
+                        </div>
+                        
+                        <h3 style="margin-top: 20px; color: #667eea;">WxPusher 配置</h3>
+                        <div className="form-group">
+                            <label htmlFor="wxpusher-app-token">WxPusher 应用 Token</label>
+                            <input type="password" id="wxpusher-app-token" name="wxpusher-app-token"/>
+                            <small>在 <a href="https://wxpusher.zjiecode.com" target="_blank">WxPusher 管理后台</a> 创建应用并获取Token</small>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="wxpusher-app-id">WxPusher 应用 ID</label>
+                            <input type="text" id="wxpusher-app-id" name="wxpusher-app-id"/>
+                            <small>应用的唯一标识ID</small>
+                        </div>
+                        
                         <button type="submit">保存设置</button>
                     </form>
                 </section>

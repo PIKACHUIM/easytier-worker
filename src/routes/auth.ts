@@ -780,7 +780,7 @@ auth.get('/me', async (c) => {
     
     // 从数据库获取最新的用户信息
     const user = await c.env.DB.prepare(
-      'SELECT id, email, is_admin, is_super_admin, is_verified, created_at FROM users WHERE email = ?'
+      'SELECT id, email, is_admin, is_super_admin, is_verified, qq_number, wechat_uid, telegram_id, created_at FROM users WHERE email = ?'
     ).bind(payload.email).first();
     
     if (!user) {
@@ -795,12 +795,71 @@ auth.get('/me', async (c) => {
       email: user.email,
       is_admin: user.is_admin,
       is_super_admin: user.is_super_admin,
-      is_verified: user.is_verified
+      is_verified: user.is_verified,
+      qq_number: user.qq_number || '',
+      wechat_uid: user.wechat_uid || '',
+      telegram_id: user.telegram_id || ''
     });
     
   } catch (error) {
     console.error('[获取用户信息] 错误:', error);
     return c.json({ error: '获取用户信息失败' }, 500);
+  }
+});
+
+// 更新用户个人信息（联系方式）
+auth.put('/profile', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '未授权' }, 401);
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    
+    if (!payload || !payload.email) {
+      return c.json({ error: '无效的令牌' }, 401);
+    }
+    
+    const { qq_number, wechat_uid, telegram_id } = await c.req.json();
+    
+    // 构建更新语句
+    const updates: string[] = [];
+    const values: any[] = [];
+    
+    if (qq_number !== undefined) {
+      updates.push('qq_number = ?');
+      values.push(qq_number || null);
+    }
+    
+    if (wechat_uid !== undefined) {
+      updates.push('wechat_uid = ?');
+      values.push(wechat_uid || null);
+    }
+    
+    if (telegram_id !== undefined) {
+      updates.push('telegram_id = ?');
+      values.push(telegram_id || null);
+    }
+    
+    if (updates.length === 0) {
+      return c.json({ error: '没有要更新的字段' }, 400);
+    }
+    
+    values.push(payload.email);
+    
+    await c.env.DB.prepare(
+      `UPDATE users SET ${updates.join(', ')} WHERE email = ?`
+    ).bind(...values).run();
+    
+    console.log('[更新个人信息] 用户信息更新成功:', payload.email);
+    
+    return c.json({ message: '个人信息更新成功' });
+    
+  } catch (error) {
+    console.error('[更新个人信息] 错误:', error);
+    return c.json({ error: '更新个人信息失败' }, 500);
   }
 });
 

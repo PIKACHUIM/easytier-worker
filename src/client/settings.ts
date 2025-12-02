@@ -158,6 +158,10 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
       (document.getElementById('resend-from-domain') as HTMLInputElement).value = settings.resend_from_domain || '';
       (document.getElementById('site-name') as HTMLInputElement).value = settings.site_name || '';
       (document.getElementById('site-url') as HTMLInputElement).value = settings.site_url || '';
+      (document.getElementById('telegram-bot-token') as HTMLInputElement).value = settings.telegram_bot_token || '';
+      (document.getElementById('telegram-bot-id') as HTMLInputElement).value = settings.telegram_bot_id || '';
+      (document.getElementById('wxpusher-app-token') as HTMLInputElement).value = settings.wxpusher_app_token || '';
+      (document.getElementById('wxpusher-app-id') as HTMLInputElement).value = settings.wxpusher_app_id || '';
     } catch (error) {
       console.error('加载设置失败:', error);
       messageDiv.innerHTML = '<p class="error">加载设置失败</p>';
@@ -173,7 +177,11 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
       resend_from_email: (document.getElementById('resend-from-email') as HTMLInputElement).value,
       resend_from_domain: (document.getElementById('resend-from-domain') as HTMLInputElement).value,
       site_name: (document.getElementById('site-name') as HTMLInputElement).value,
-      site_url: (document.getElementById('site-url') as HTMLInputElement).value
+      site_url: (document.getElementById('site-url') as HTMLInputElement).value,
+      telegram_bot_token: (document.getElementById('telegram-bot-token') as HTMLInputElement).value,
+      telegram_bot_id: (document.getElementById('telegram-bot-id') as HTMLInputElement).value,
+      wxpusher_app_token: (document.getElementById('wxpusher-app-token') as HTMLInputElement).value,
+      wxpusher_app_id: (document.getElementById('wxpusher-app-id') as HTMLInputElement).value
     };
     
     try {

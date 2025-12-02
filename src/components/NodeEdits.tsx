@@ -236,6 +236,17 @@ function NodeEdits({
                     </div>
 
                     <div className="form-group">
+                        <label htmlFor={`${prefix}offline-notify`}>节点首次下线通知</label>
+                        <select id={`${prefix}offline-notify`}>
+                            <option value="0">不通知</option>
+                            <option value="1">通知微信（WxPusher）</option>
+                            <option value="2">通知邮箱</option>
+                            <option value="3">Telegram通知</option>
+                        </select>
+                        <small>节点超过10分钟未上报时，系统将根据此设置发送通知（1小时内最多通知一次）</small>
+                    </div>
+
+                    <div className="form-group">
                         <label htmlFor={`${prefix}notes`}>备注信息</label>
                         <textarea
                             id={`${prefix}notes`}
