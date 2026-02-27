@@ -14,9 +14,12 @@ COPY checker* ./
 # 确保 checker 有执行权限（如果存在）
 RUN chmod +x checker 2>/dev/null || true
 
-# API_URL 和 JWT_TOKEN 通过环境变量传入
+# 复制 entrypoint 脚本
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+# API_URL 通过环境变量传入，JWT_TOKEN 由 entrypoint 自动生成
 ENV API_URL=""
-ENV JWT_TOKEN=""
 ENV LOG_LEVEL="INFO"
 
-CMD ["sh", "-c", "python monitor.py \"${API_URL}\" \"${JWT_TOKEN}\" --log-level \"${LOG_LEVEL}\""]
+ENTRYPOINT ["/bin/sh", "entrypoint.sh"]

@@ -8,16 +8,15 @@ services:
     ports:
       - "8787:8787"
     environment:
-      # JWT 密钥，与 monitor 保持一致
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      # 其他可选配置
+      # JWT_SECRET 可选：不设置则容器启动时自动随机生成并持久化
+      JWT_SECRET: ${JWT_SECRET:-}
       ENABLE_EMAIL_VERIFICATION: ${ENABLE_EMAIL_VERIFICATION:-false}
       SITE_NAME: ${SITE_NAME:-EasyTier 节点管理系统}
     volumes:
-      # 持久化 wrangler 本地状态（D1 数据库等）
+      # 持久化 wrangler 本地状态（D1 本地数据库等）
       - wrangler_state:/app/.wrangler
-      # 可选：挂载自定义 wrangler.jsonc 覆盖镜像内配置
-      # - ./wrangler.jsonc:/app/wrangler.jsonc:ro
+      # 共享 secrets 目录（JWT_SECRET 由 app 写入，monitor 读取）
+      - secrets_vol:/secrets
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8787/"]
@@ -38,13 +37,16 @@ services:
     environment:
       # 指向容器内部的 app 服务
       API_URL: http://app:8787
-      # 使用与 app 相同的 JWT_SECRET 生成 token，或直接传入已签发的 token
-      JWT_TOKEN: ${MONITOR_JWT_TOKEN:-}
       LOG_LEVEL: ${MONITOR_LOG_LEVEL:-INFO}
     volumes:
+      # 读取 app 写入的 JWT_SECRET
+      - secrets_vol:/secrets:ro
       # 如需使用 Linux checker 可执行文件，通过 volume 挂载
       - ./monitor/checker:/monitor/checker:ro
     restart: unless-stopped
 
 volumes:
+  # wrangler 本地 D1 数据库持久化
   wrangler_state:
+  # app 与 monitor 共享的 secrets（JWT_SECRET）
+  secrets_vol:

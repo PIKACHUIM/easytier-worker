@@ -15,6 +15,8 @@ COPY public/ ./public/
 COPY tsconfig.json vite.config.ts ./
 # 复制 wrangler 配置（运行时会挂载覆盖）
 COPY wrangler.jsonc ./
+# vite.config.ts 中 configPath 硬编码为 wrangler.test.jsonc，构建时用 wrangler.jsonc 代替
+RUN cp wrangler.jsonc wrangler.test.jsonc
 
 # 构建前端资产
 RUN npm run build
@@ -36,7 +38,11 @@ COPY --from=builder /app/wrangler.jsonc ./wrangler.jsonc
 # 复制 schema（数据库初始化可能需要）
 COPY schema.sql ./
 
+# 复制启动脚本
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
 EXPOSE 8787
 
-# 使用 wrangler dev 在本地模式运行（--local 使用本地 D1）
-CMD ["wrangler", "dev", "--port", "8787", "--host", "0.0.0.0", "--local"]
+# entrypoint 自动生成/读取 JWT_SECRET，再启动 wrangler dev --local
+ENTRYPOINT ["/bin/sh", "entrypoint.sh"]
