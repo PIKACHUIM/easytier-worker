@@ -9,7 +9,7 @@ export const renderer = jsxRenderer(({children}) => {
             <title>EasyTier 节点管理系统</title>
             <link rel="preconnect" href="https://fonts.googleapis.com"/>
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+            <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono+CJK+SC:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
             <style dangerouslySetInnerHTML={{
                 __html: `
 /* ===== CSS 变量 / Design Tokens ===== */
@@ -83,8 +83,8 @@ export const renderer = jsxRenderer(({children}) => {
   --transition-slow: 0.4s ease;
 
   /* 字体 */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'Noto Sans SC', 'Noto Sans Mono CJK SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Noto Sans Mono CJK SC', 'JetBrains Mono', 'Fira Code', monospace;
 
   /* 间距 */
   --space-1: 4px;
@@ -1953,11 +1953,33 @@ window.renderNodeCards = function(mode, nodes) {
       '</div>';
     }
 
+    // 中转标签
+    var relayBadge = node.allow_relay
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:linear-gradient(135deg,#d1fae5,#a7f3d0);border:1px solid #6ee7b7;border-radius:20px;color:#065f46;font-size:10px;font-weight:600;">🔀 支持中转</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.1);border-radius:20px;color:var(--text-muted);font-size:10px;">🚫 不中转</span>';
+
+    // 标签
+    var tagsHtml = '';
+    if (node.tags && node.tags.trim()) {
+      var tagList = node.tags.split(',').map(function(tag) { return tag.trim(); }).filter(function(t) { return t; });
+      tagsHtml = tagList.map(function(tag) {
+        return '<span style="display:inline-block;padding:1px 7px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:20px;color:#6366f1;font-size:10px;font-weight:500;">' + window.escapeHtml(tag) + '</span>';
+      }).join(' ');
+    }
+
+    // 备注
+    var notesHtml = (node.notes && node.notes.trim())
+      ? '<div style="padding:6px 0;border-top:1px solid var(--bg-glass-border);display:flex;align-items:flex-start;gap:6px;">' +
+          '<span style="font-size:11px;color:var(--text-muted);flex-shrink:0;margin-top:1px;">💬</span>' +
+          '<span style="font-size:11px;color:var(--text-secondary);line-height:1.5;word-break:break-all;">' + window.escapeHtml(node.notes) + '</span>' +
+        '</div>'
+      : '';
+
     return '<div class="node-card-view ' + statusClass + ' fade-in">' +
       '<div class="node-card-header">' +
-        '<div>' +
+        '<div style="flex:1;min-width:0;">' +
           '<div class="node-card-name">' + window.escapeHtml(node.node_name) + '</div>' +
-          '<div class="node-card-region">📍 ' + regionText + (node.region_detail ? ' · ' + window.escapeHtml(node.region_detail) : '') + '</div>' +
+          '<div class="node-card-region" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;">📍 ' + regionText + (node.region_detail ? ' · ' + window.escapeHtml(node.region_detail) : '') + (tagsHtml ? '<span style="display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:2px;">' + tagsHtml + '</span>' : '') + '<span style="margin-left:2px;">' + relayBadge + '</span>' + '</div>' +
         '</div>' +
         '<span class="node-status ' + (isOnline ? 'online' : 'offline') + '">' + statusText + '</span>' +
       '</div>' +
@@ -1982,7 +2004,16 @@ window.renderNodeCards = function(mode, nodes) {
         '<div class="node-card-progress-label"><span>带宽使用</span><span style="color:' + bandwidthColor + ';">' + bandwidthPct.toFixed(0) + '%</span></div>' +
         '<div class="progress-container"><div class="progress-bar" style="width:' + bandwidthPct + '%;background:' + bandwidthColor + ';"></div></div>' +
       '</div>' +
-      '<div class="node-card-conn" style="padding:6px 12px 4px;">' + connectionInfo + '</div>' +
+      '<div class="node-card-progress">' +
+        '<div class="node-card-progress-label"><span>连接使用</span><span style="color:' + connColor + ';">' + connPct.toFixed(0) + '%</span></div>' +
+        '<div class="progress-container"><div class="progress-bar" style="width:' + connPct + '%;background:' + connColor + ';"></div></div>' +
+      '</div>' +
+      '<div class="node-card-progress">' +
+        '<div class="node-card-progress-label"><span>流量使用</span><span style="color:' + trafficColor + ';">' + trafficPct.toFixed(0) + '%</span></div>' +
+        '<div class="progress-container"><div class="progress-bar" style="width:' + trafficPct + '%;background:' + trafficColor + ';"></div></div>' +
+      '</div>' +
+      '<div class="node-card-conn" style="padding:6px 0 4px;">' + connectionInfo + '</div>' +
+      notesHtml +
       '<div class="node-card-footer">' +
         actionsHtml +
       '</div>' +
@@ -2030,7 +2061,7 @@ window.renderNodeRows = function(mode, nodes) {
     if (node.connections && node.connections.length > 0) {
       connectionInfo = node.connections.map(function(conn) {
         var connText = conn.type + '://' + conn.ip + ':' + conn.port;
-        var icon = conn.type === 'TCP' ? '🔗' : (conn.type === 'UDP' ? '⚡' : (conn.type === 'WS' ? '🌐' : (conn.type === 'WSS' ? '🔒' : (conn.type === 'WG' ? '🛡️' : '🔌'))));
+        var icon = conn.type === 'TCP' ? '🔗' : (conn.type === 'UDP' ? '📡' : (conn.type === 'WS' ? '🌐' : (conn.type === 'WSS' ? '🔒' : (conn.type === 'WG' ? '🛡️' : '🔌'))));
         var color = conn.type === 'TCP' ? '#1976d2' : (conn.type === 'UDP' ? '#7b1fa2' : (conn.type === 'WS' ? '#f57c00' : (conn.type === 'WSS' ? '#388e3c' : (conn.type === 'WG' ? '#c2185b' : '#616161'))));
         var bg = conn.type === 'TCP' ? '#e3f2fd' : (conn.type === 'UDP' ? '#f3e5f5' : (conn.type === 'WS' ? '#fff3e0' : (conn.type === 'WSS' ? '#e8f5e8' : (conn.type === 'WG' ? '#fce4ec' : '#f5f5f5'))));
         var border = conn.type === 'TCP' ? '#2196f3' : (conn.type === 'UDP' ? '#9c27b0' : (conn.type === 'WS' ? '#ff9800' : (conn.type === 'WSS' ? '#4caf50' : (conn.type === 'WG' ? '#e91e63' : '#9e9e9e'))));
