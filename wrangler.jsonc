@@ -2,9 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "easytier-work",
   "compatibility_date": "2025-08-03",
-  "main": "./dist/index.js",
+  "main": "./src/cfapp.ts",
   "assets": {
-    "directory": "./public",
+    "directory": "./dist",
     "binding": "ASSETS"
   },
   "d1_databases": [

@@ -37,14 +37,14 @@ document.getElementById('logout')?.addEventListener('click', (e) => {
 // 加载用户的节点列表
 async function loadMyNodes() {
   try {
-const response = await fetch('/api/nodes/my', {
+    const response = await fetch('/api/nodes/my', {
       headers: {
         'Authorization': `Bearer ${authToken}`,
       },
     });
-    
+
     const data = await response.json();
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('token');
@@ -53,47 +53,22 @@ const response = await fetch('/api/nodes/my', {
       }
       throw new Error(data.error);
     }
-    
+
     const container = document.getElementById('nodes-container');
-    
+    const cardView = document.getElementById('dashboard-card-view');
+
     if (data.nodes.length === 0) {
-      container!.innerHTML = '<p>您还没有添加任何节点</p>';
+      const emptyHtml = '<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted);">您还没有添加任何节点</td></tr>';
+      if (container) container.innerHTML = emptyHtml;
+      if (cardView) cardView.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted);">您还没有添加任何节点</div>';
       return;
     }
-    
-    container!.innerHTML = data.nodes.map((node: any) => `
-      <div class="node-card">
-        <h3>${escapeHtml(node.node_name)}</h3>
-        <div class="node-info">
-          <strong>地域:</strong> ${node.region_type === 'domestic' ? '国内' : '海外'} - ${escapeHtml(node.region_detail)}
-        </div>
-        <div class="node-info">
-          <strong>带宽:</strong> ${node.current_bandwidth.toFixed(2)} / ${node.tier_bandwidth.toFixed(2)} Mbps
-        </div>
-        <div class="node-info">
-          <strong>流量:</strong> ${node.used_traffic.toFixed(2)} / ${node.max_traffic.toFixed(2)} GB
-        </div>
-        <div class="node-info">
-          <strong>连接数:</strong> ${node.connection_count} / ${node.max_connections}
-        </div>
-        <div class="node-info">
-          <strong>有效期至:</strong> ${new Date(node.valid_until).toLocaleDateString()}
-        </div>
-        <div class="node-info" style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px;">
-          <strong>上报Token:</strong> 
-          <code id="token-${node.id}" style="background: #fff; padding: 4px 8px; border-radius: 3px; font-family: monospace; font-size: 12px; word-break: break-all;">
-            ${node.report_token || '未生成'}
-          </code>
-          <button onclick="copyToken('${node.report_token}')" style="margin-left: 10px; padding: 4px 8px; font-size: 12px;">复制</button>
-          <button onclick="regenerateToken(${node.id})" style="margin-left: 5px; padding: 4px 8px; font-size: 12px;">重新生成</button>
-        </div>
-        <span class="node-status ${node.status}">${node.status === 'online' ? '在线' : '离线'}</span>
-        <div style="margin-top: 10px;">
-          <button onclick="editNode(${node.id})" style="margin-right: 10px;">编辑</button>
-          <button onclick="deleteNode(${node.id})">删除</button>
-        </div>
-      </div>
-    `).join('');
+
+    // 使用全局渲染函数（同时处理表格行和卡片视图）
+    if ((window as any).renderNodeRows) {
+      const rowsHtml = (window as any).renderNodeRows('dashboard', data.nodes);
+      if (container) container.innerHTML = rowsHtml;
+    }
   } catch (error) {
     console.error('加载节点列表失败:', error);
   }

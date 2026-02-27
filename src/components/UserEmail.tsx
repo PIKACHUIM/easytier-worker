@@ -1,329 +1,255 @@
+// 邮箱验证页面组件 - 现代设计
 export default function UserEmail() {
-  return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px'
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '40px',
-        borderRadius: '10px',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-        maxWidth: '500px',
-        width: '100%',
-        textAlign: 'center'
-      }}>
-        {/* Logo/标题 */}
-        <div style={{ marginBottom: '30px' }}>
-          <h1 style={{
-            color: '#667eea',
-            fontSize: '28px',
-            marginBottom: '10px',
-            fontWeight: '600'
-          }}>
-            EasyTier
-          </h1>
-          <p style={{ color: '#666', fontSize: '16px' }}>
-            节点管理系统
-          </p>
-        </div>
-
-        {/* 状态容器 */}
-        <div id="status-container" style={{ marginBottom: '20px' }}>
-          {/* 加载图标 */}
-          <div id="loading-icon" style={{
-            width: '60px',
-            height: '60px',
-            margin: '0 auto',
-            border: '4px solid #f3f3f3',
-            borderTop: '4px solid #667eea',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-          
-          {/* 成功图标 - 默认隐藏 */}
-          <div id="success-icon" style={{
-            width: '60px',
-            height: '60px',
-            margin: '0 auto',
-            background: '#28a745',
-            borderRadius: '50%',
-            display: 'none',
+    return (
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'white',
-            fontSize: '24px'
-          }}>
-            ✓
-          </div>
-          
-          {/* 错误图标 - 默认隐藏 */}
-          <div id="error-icon" style={{
-            width: '60px',
-            height: '60px',
-            margin: '0 auto',
-            background: '#dc3545',
-            borderRadius: '50%',
-            display: 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontSize: '24px'
-          }}>
-            ✗
-          </div>
-        </div>
-
-        {/* 消息内容 */}
-        <div id="message-container" style={{ marginBottom: '30px' }}>
-          <p id="status-message" style={{
-            color: '#333',
-            fontSize: '16px',
-            lineHeight: '1.5'
-          }}>
-            正在验证您的邮箱地址，请稍候...
-          </p>
-        </div>
-
-        {/* 操作按钮 */}
-        <div id="actions-container" style={{ display: 'none', flexDirection: 'column', gap: '10px' }}>
-          <button
-            id="login-btn"
-            onClick={() => window.location.href = '/login'}
-            style={{
-              background: '#667eea',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '5px',
-              fontSize: '16px',
-              cursor: 'pointer',
-              transition: 'background 0.3s',
-              display: 'none'
-            }}
-          >
-            前往登录
-          </button>
-          
-          <button
-            id="resend-btn"
-            style={{
-              background: '#28a745',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '5px',
-              fontSize: '16px',
-              cursor: 'pointer',
-              transition: 'background 0.3s',
-              display: 'none'
-            }}
-          >
-            重新发送验证邮件
-          </button>
-          
-          <button
-            id="register-btn"
-            onClick={() => window.location.href = '/register'}
-            style={{
-              background: '#6c757d',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '5px',
-              fontSize: '16px',
-              cursor: 'pointer',
-              transition: 'background 0.3s',
-              display: 'none'
-            }}
-          >
-            重新注册
-          </button>
-        </div>
-
-        {/* 提示信息 */}
-        <div id="hint-container" style={{
-          marginTop: '20px',
-          padding: '15px',
-          background: '#f8f9fa',
-          borderRadius: '5px',
-          borderLeft: '4px solid #667eea'
+            background: 'var(--bg-primary)',
+            padding: '20px',
+            position: 'relative'
         }}>
-          <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
-            正在验证您的邮箱地址，请稍候...
-          </p>
+            {/* 背景装饰 */}
+            <div style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'radial-gradient(ellipse 80% 50% at 20% -20%, rgba(79, 70, 229, 0.15) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 110%, rgba(99, 102, 241, 0.1) 0%, transparent 60%)',
+                pointerEvents: 'none', zIndex: 0
+            }}></div>
+
+            <div style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '24px',
+                padding: '48px 40px',
+                maxWidth: '460px',
+                width: '100%',
+                textAlign: 'center',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 20px 25px rgba(0,0,0,0.4)',
+                position: 'relative',
+                zIndex: 1,
+                overflow: 'hidden'
+            }}>
+                {/* 顶部渐变线 */}
+                <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, height: '3px',
+                    background: 'linear-gradient(90deg, #4f46e5, #6366f1, #a78bfa)'
+                }}></div>
+
+                {/* Logo */}
+                <div style={{marginBottom: '32px'}}>
+                    <div style={{
+                        width: '56px', height: '56px',
+                        background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+                        borderRadius: '16px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '28px', margin: '0 auto 16px',
+                        boxShadow: '0 0 20px rgba(79, 70, 229, 0.4)'
+                    }}>🌐</div>
+                    <h1 style={{
+                        color: '#f1f5f9', fontSize: '24px', fontWeight: '800',
+                        letterSpacing: '-0.02em', marginBottom: '4px',
+                        fontFamily: "'Inter', sans-serif"
+                    }}>EasyTier</h1>
+                    <p style={{color: '#94a3b8', fontSize: '14px'}}>节点管理系统</p>
+                </div>
+
+                {/* 状态容器 */}
+                <div id="status-container" style={{marginBottom: '20px'}}>
+                    <div id="loading-icon" style={{
+                        width: '52px', height: '52px', margin: '0 auto',
+                        border: '3px solid rgba(255,255,255,0.1)',
+                        borderTop: '3px solid #6366f1',
+                        borderRadius: '50%', animation: 'spin 0.8s linear infinite'
+                    }}></div>
+
+                    <div id="success-icon" style={{
+                        width: '52px', height: '52px', margin: '0 auto',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        borderRadius: '50%', display: 'none',
+                        alignItems: 'center', justifyContent: 'center',
+                        color: '#10b981', fontSize: '24px'
+                    }}>✓</div>
+
+                    <div id="error-icon" style={{
+                        width: '52px', height: '52px', margin: '0 auto',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '50%', display: 'none',
+                        alignItems: 'center', justifyContent: 'center',
+                        color: '#ef4444', fontSize: '24px'
+                    }}>✗</div>
+                </div>
+
+                {/* 消息内容 */}
+                <div id="message-container" style={{marginBottom: '28px'}}>
+                    <p id="status-message" style={{
+                        color: '#f1f5f9', fontSize: '15px', lineHeight: '1.6',
+                        fontFamily: "'Inter', sans-serif"
+                    }}>
+                        正在验证您的邮箱地址，请稍候...
+                    </p>
+                </div>
+
+                {/* 操作按钮 */}
+                <div id="actions-container" style={{display: 'none', flexDirection: 'column', gap: '10px'}}>
+                    <button id="login-btn" onClick={() => window.location.href = '/login'} style={{
+                        background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+                        color: 'white', border: 'none', padding: '12px 24px',
+                        borderRadius: '10px', fontSize: '14px', fontWeight: '600',
+                        cursor: 'pointer', display: 'none', fontFamily: "'Inter', sans-serif",
+                        boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
+                    }}>前往登录</button>
+
+                    <button id="resend-btn" style={{
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)',
+                        padding: '12px 24px', borderRadius: '10px', fontSize: '14px',
+                        fontWeight: '600', cursor: 'pointer', display: 'none',
+                        fontFamily: "'Inter', sans-serif"
+                    }}>重新发送验证邮件</button>
+
+                    <button id="register-btn" onClick={() => window.location.href = '/register'} style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        color: '#94a3b8', border: '1px solid rgba(255,255,255,0.12)',
+                        padding: '12px 24px', borderRadius: '10px', fontSize: '14px',
+                        fontWeight: '500', cursor: 'pointer', display: 'none',
+                        fontFamily: "'Inter', sans-serif"
+                    }}>重新注册</button>
+                </div>
+
+                {/* 提示信息 */}
+                <div id="hint-container" style={{
+                    marginTop: '20px', padding: '14px 16px',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    borderRadius: '10px', borderLeft: '3px solid #6366f1'
+                }}>
+                    <p style={{margin: 0, color: '#94a3b8', fontSize: '13px', lineHeight: '1.5'}}>
+                        正在验证您的邮箱地址，请稍候...
+                    </p>
+                </div>
+
+                <style jsx>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
+
+                <script dangerouslySetInnerHTML={{
+                    __html: `
+(function() {
+  var currentEmail = '';
+  var currentStatus = 'loading';
+  var loadingIcon = document.getElementById('loading-icon');
+  var successIcon = document.getElementById('success-icon');
+  var errorIcon = document.getElementById('error-icon');
+  var statusMessage = document.getElementById('status-message');
+  var actionsContainer = document.getElementById('actions-container');
+  var loginBtn = document.getElementById('login-btn');
+  var resendBtn = document.getElementById('resend-btn');
+  var registerBtn = document.getElementById('register-btn');
+  var hintContainer = document.getElementById('hint-container');
+
+  function updateUI(status, message, email) {
+    currentStatus = status;
+    currentEmail = email || '';
+    loadingIcon.style.display = 'none';
+    successIcon.style.display = 'none';
+    errorIcon.style.display = 'none';
+    loginBtn.style.display = 'none';
+    resendBtn.style.display = 'none';
+    registerBtn.style.display = 'none';
+    actionsContainer.style.display = 'none';
+    statusMessage.style.color = status === 'error' ? '#ef4444' : '#f1f5f9';
+    switch (status) {
+      case 'loading':
+        loadingIcon.style.display = 'block';
+        hintContainer.style.display = 'block';
+        hintContainer.style.background = 'rgba(99, 102, 241, 0.08)';
+        hintContainer.style.borderLeft = '3px solid #6366f1';
+        hintContainer.querySelector('p').textContent = '正在验证您的邮箱地址，请稍候...';
+        hintContainer.querySelector('p').style.color = '#94a3b8';
+        break;
+      case 'success':
+        successIcon.style.display = 'flex';
+        loginBtn.style.display = 'block';
+        actionsContainer.style.display = 'flex';
+        hintContainer.style.display = 'none';
+        break;
+      case 'error':
+        errorIcon.style.display = 'flex';
+        registerBtn.style.display = 'block';
+        actionsContainer.style.display = 'flex';
+        hintContainer.style.display = 'block';
+        hintContainer.style.background = 'rgba(239, 68, 68, 0.08)';
+        hintContainer.style.borderLeft = '3px solid #ef4444';
+        hintContainer.querySelector('p').textContent = '如果您没有收到验证邮件，请重新注册或联系管理员。';
+        hintContainer.querySelector('p').style.color = '#f87171';
+        if (email) { resendBtn.style.display = 'block'; }
+        break;
+      case 'resending':
+        errorIcon.style.display = 'flex';
+        resendBtn.style.display = 'block';
+        resendBtn.textContent = '发送中...';
+        resendBtn.style.background = 'rgba(245, 158, 11, 0.15)';
+        resendBtn.style.color = '#f59e0b';
+        actionsContainer.style.display = 'flex';
+        hintContainer.style.display = 'none';
+        break;
+    }
+    statusMessage.textContent = message;
+  }
+
+  async function verifyEmail(token) {
+    try {
+      var response = await fetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      var data = await response.json();
+      if (response.ok) { updateUI('success', '邮箱验证成功！', data.email || ''); }
+      else { updateUI('error', data.error || '验证失败', data.email || ''); }
+    } catch(error) {
+      updateUI('error', '验证过程中出现错误，请稍后重试');
+    }
+  }
+
+  async function resendVerification() {
+    if (!currentEmail) return;
+    updateUI('resending', '正在重新发送验证邮件...', currentEmail);
+    try {
+      var response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentEmail })
+      });
+      var data = await response.json();
+      if (response.ok) {
+        updateUI('loading', '验证邮件已重新发送，请查收邮箱（包括垃圾邮件文件夹）', currentEmail);
+        resendBtn.textContent = '重新发送验证邮件';
+        resendBtn.style.background = 'rgba(16, 185, 129, 0.15)';
+        resendBtn.style.color = '#10b981';
+      } else {
+        updateUI('error', data.error || '重新发送失败', currentEmail);
+      }
+    } catch(error) {
+      updateUI('error', '重新发送过程中出现错误，请稍后重试', currentEmail);
+    }
+  }
+
+  resendBtn.addEventListener('click', resendVerification);
+  var urlParams = new URLSearchParams(window.location.search);
+  var token = urlParams.get('token');
+  if (!token) { updateUI('error', '验证链接无效或已过期'); }
+  else { verifyEmail(token); }
+})();
+                    `
+                }}/>
+            </div>
         </div>
-
-        {/* 样式和脚本 */}
-        <style jsx>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
-        
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              // 立即执行的脚本
-              (function() {
-                let currentEmail = '';
-                let currentStatus = 'loading';
-
-                // DOM元素引用
-                const loadingIcon = document.getElementById('loading-icon');
-                const successIcon = document.getElementById('success-icon');
-                const errorIcon = document.getElementById('error-icon');
-                const statusMessage = document.getElementById('status-message');
-                const actionsContainer = document.getElementById('actions-container');
-                const loginBtn = document.getElementById('login-btn');
-                const resendBtn = document.getElementById('resend-btn');
-                const registerBtn = document.getElementById('register-btn');
-                const hintContainer = document.getElementById('hint-container');
-
-                // 更新UI状态
-                function updateUI(status, message, email = '') {
-                  currentStatus = status;
-                  currentEmail = email;
-                  
-                  // 隐藏所有图标
-                  loadingIcon.style.display = 'none';
-                  successIcon.style.display = 'none';
-                  errorIcon.style.display = 'none';
-                  
-                  // 隐藏所有按钮
-                  loginBtn.style.display = 'none';
-                  resendBtn.style.display = 'none';
-                  registerBtn.style.display = 'none';
-                  actionsContainer.style.display = 'none';
-                  
-                  // 更新消息样式
-                  statusMessage.style.color = status === 'error' ? '#dc3545' : '#333';
-                  
-                  // 根据状态更新UI
-                  switch (status) {
-                    case 'loading':
-                      loadingIcon.style.display = 'block';
-                      hintContainer.style.display = 'block';
-                      hintContainer.style.background = '#f8f9fa';
-                      hintContainer.style.borderLeft = '4px solid #667eea';
-                      hintContainer.querySelector('p').textContent = '正在验证您的邮箱地址，请稍候...';
-                      hintContainer.querySelector('p').style.color = '#666';
-                      break;
-                      
-                    case 'success':
-                      successIcon.style.display = 'flex';
-                      loginBtn.style.display = 'block';
-                      actionsContainer.style.display = 'flex';
-                      hintContainer.style.display = 'none';
-                      break;
-                      
-                    case 'error':
-                      errorIcon.style.display = 'flex';
-                      registerBtn.style.display = 'block';
-                      actionsContainer.style.display = 'flex';
-                      hintContainer.style.display = 'block';
-                      hintContainer.style.background = '#f8d7da';
-                      hintContainer.style.borderLeft = '4px solid #dc3545';
-                      hintContainer.querySelector('p').textContent = '如果您没有收到验证邮件，请重新注册或联系管理员。';
-                      hintContainer.querySelector('p').style.color = '#721c24';
-                      
-                      // 如果有邮箱，显示重新发送按钮
-                      if (email) {
-                        resendBtn.style.display = 'block';
-                      }
-                      break;
-                      
-                    case 'resending':
-                      errorIcon.style.display = 'flex';
-                      resendBtn.style.display = 'block';
-                      resendBtn.textContent = '发送中...';
-                      resendBtn.style.background = '#ffc107';
-                      actionsContainer.style.display = 'flex';
-                      hintContainer.style.display = 'none';
-                      break;
-                  }
-                  
-                  // 更新消息
-                  statusMessage.textContent = message;
-                }
-
-                // 验证邮箱
-                async function verifyEmail(token) {
-                  try {
-                    const response = await fetch('/api/auth/verify-email', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ token }),
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                      updateUI('success', '邮箱验证成功！', data.email || '');
-                    } else {
-                      updateUI('error', data.error || '验证失败', data.email || '');
-                    }
-                  } catch (error) {
-                    console.error('验证邮箱错误:', error);
-                    updateUI('error', '验证过程中出现错误，请稍后重试');
-                  }
-                }
-
-                // 重新发送验证邮件
-                async function resendVerification() {
-                  if (!currentEmail) return;
-                  
-                  updateUI('resending', '正在重新发送验证邮件...', currentEmail);
-                  
-                  try {
-                    const response = await fetch('/api/auth/resend-verification', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ email: currentEmail }),
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                      updateUI('loading', '验证邮件已重新发送，请查收邮箱（包括垃圾邮件文件夹）', currentEmail);
-                      // 重置重新发送按钮
-                      resendBtn.textContent = '重新发送验证邮件';
-                      resendBtn.style.background = '#28a745';
-                    } else {
-                      updateUI('error', data.error || '重新发送失败', currentEmail);
-                    }
-                  } catch (error) {
-                    console.error('重新发送验证邮件错误:', error);
-                    updateUI('error', '重新发送过程中出现错误，请稍后重试', currentEmail);
-                  }
-                }
-
-                // 重新发送按钮事件
-                resendBtn.addEventListener('click', resendVerification);
-
-                // 从URL获取token并验证
-                const urlParams = new URLSearchParams(window.location.search);
-                const token = urlParams.get('token');
-                
-                if (!token) {
-                  updateUI('error', '验证链接无效或已过期');
-                } else {
-                  verifyEmail(token);
-                }
-              })();
-            `
-          }}
-        />
-      </div>
-    </div>
-  )
+    )
 }

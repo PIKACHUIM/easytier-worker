@@ -1,4 +1,4 @@
-// 首页组件
+// 首页组件 - 现代设计
 import React from 'react';
 import WebHeader from './WebHeader';
 import WebFooter from './WebFooter';
@@ -7,80 +7,134 @@ import NodeEdits from './NodeEdits';
 
 function HomeIndex() {
     return (
-<div className="container" style="text-align: center;">
-            <WebHeader title="EasyTier 节点管理系统 - 公共节点"/>
+        <div className="page-wrapper">
+            <WebHeader title="EasyTier 节点管理系统"/>
 
-<main className="main">
-<section className="hero">
-                    <h2>欢迎使用 EasyTier 节点管理系统</h2>
-                    <p>高效管理您的 EasyTier 节点，提供稳定的网络服务</p>
-                </section>
-<section className="stats-dashboard" id="stats">
-<div className="stats-grid">
-                        {/* 在线节点卡片 */}
-<div className="stat-card-item" style="display: flex; align-items: center; justify-content: center;">
-<div className="stat-card-content-vertical" style="width: 240px; flex-shrink: 0;">
-<div className="stat-chart-top" style="display: flex; justify-content: center;">
-                                    <canvas id="nodes-chart" width="120" height="120"></canvas>
+            <main className="main-content">
+                <div className="container">
+                    {/* Hero 区域 */}
+                    <section className="hero fade-in-up">
+                        {/*<div className="hero-badge">*/}
+                        {/*    <span>🌐</span>*/}
+                        {/*    <span>EasyTier Network</span>*/}
+                        {/*</div>*/}
+                        <h2>
+                             <span className="gradient-text">EasyTier</span>节点管理系统
+                        </h2>
+                        <p>高效管理您的 EasyTier 节点，提供稳定可靠的网络服务</p>
+                    </section>
+
+                    {/* 统计仪表板 - 全新设计 */}
+                    <section id="stats" className="fade-in-up" style="animation-delay: 0.1s;">
+                        <div className="stats-grid-new">
+                            {/* 在线节点卡片 */}
+                            <div className="stat-card-new nodes-stat">
+                                <div className="stat-card-top">
+                                    <div>
+                                        <div className="stat-card-label">在线节点</div>
+                                        <div className="stat-card-number" id="nodes-text">—</div>
+                                        <div className="stat-card-sub">在线 / 总节点数</div>
+                                    </div>
+                                    {/* 甜甜圈图 */}
+                                    <div className="stat-card-donut">
+                                        <canvas id="nodes-chart" width="72" height="72" className="stat-donut-canvas"></canvas>
+                                        <div className="stat-donut-legend">
+                                            <div className="stat-legend-item">
+                                                <span className="stat-legend-dot" style="background: #10b981;"></span>
+                                                <span>在线节点</span>
+                                            </div>
+                                            <div className="stat-legend-item">
+                                                <span className="stat-legend-dot" style="background: #ef4444;"></span>
+                                                <span>离线节点</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="stat-card-icon green">🖥️</div>
                                 </div>
-<div className="stat-info-bottom">
-                                    <h3>在线节点</h3>
-<div className="stat-value" id="nodes-text">-/-</div>
+                                {/* 趋势折线图 */}
+                                <div className="stat-card-chart" style="margin-top: 12px;">
+                                    <canvas id="nodes-trend-chart" style="width:100%;height:60px;"></canvas>
                                 </div>
                             </div>
-<div className="stat-trend-side" style="flex: 1; margin-left: 20px; padding: 10px;">
-                                <canvas id="nodes-trend-chart" style="width: 100%; height: 180px;"></canvas>
+
+                            {/* 连接负载卡片 */}
+                            <div className="stat-card-new connections-stat">
+                                <div className="stat-card-top">
+                                    <div>
+                                        <div className="stat-card-label">连接负载</div>
+                                        <div className="stat-card-number" id="connections-text">—</div>
+                                        <div className="stat-card-sub">当前 / 最大连接数</div>
+                                    </div>
+                                    {/* 甜甜圈图 */}
+                                    <div className="stat-card-donut">
+                                        <canvas id="connections-chart" width="72" height="72" className="stat-donut-canvas"></canvas>
+                                        <div className="stat-donut-legend">
+                                            <div className="stat-legend-item">
+                                                <span className="stat-legend-dot" style="background: #3b82f6;"></span>
+                                                <span>已用连接</span>
+                                            </div>
+                                            <div className="stat-legend-item">
+                                                <span className="stat-legend-dot" style="background: #e5e7eb;"></span>
+                                                <span>剩余容量</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="stat-card-icon blue">🔗</div>
+                                </div>
+                                {/* 趋势折线图 */}
+                                <div className="stat-card-chart" style="margin-top: 12px;">
+                                    <canvas id="connections-trend-chart" style="width:100%;height:60px;"></canvas>
+                                </div>
+                            </div>
+
+                            {/* 带宽负载卡片 */}
+                            <div className="stat-card-new bandwidth-stat">
+                                <div className="stat-card-top">
+                                    <div>
+                                        <div className="stat-card-label">带宽负载</div>
+                                        <div className="stat-card-number" id="bandwidth-text">—</div>
+                                        <div className="stat-card-sub">当前 / 阶梯带宽 (M)</div>
+                                    </div>
+                                    {/* 甜甜圈图 */}
+                                    <div className="stat-card-donut">
+                                        <canvas id="bandwidth-chart" width="72" height="72" className="stat-donut-canvas"></canvas>
+                                        <div className="stat-donut-legend">
+                                            <div className="stat-legend-item">
+                                                <span className="stat-legend-dot" style="background: #f59e0b;"></span>
+                                                <span>当前带宽</span>
+                                            </div>
+                                            <div className="stat-legend-item">
+                                                <span className="stat-legend-dot" style="background: #e5e7eb;"></span>
+                                                <span>剩余容量</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="stat-card-icon amber">📡</div>
+                                </div>
+                                {/* 趋势折线图（双线：当前带宽 + 阶梯带宽） */}
+                                <div className="stat-card-chart" style="margin-top: 12px;">
+                                    <canvas id="bandwidth-trend-chart" style="width:100%;height:60px;"></canvas>
+                                </div>
                             </div>
                         </div>
+                    </section>
 
-                        {/* 当前连接卡片 */}
-<div className="stat-card-item" style="display: flex; align-items: center; justify-content: center;">
-<div className="stat-card-content-vertical" style="width: 240px; flex-shrink: 0;">
-<div className="stat-chart-top" style="display: flex; justify-content: center;">
-                                    <canvas id="connections-chart" width="120" height="120"></canvas>
-                                </div>
-<div className="stat-info-bottom">
-                                    <h3>连接负载</h3>
-<div className="stat-value" id="connections-text">-/-</div>
-                                </div>
-                            </div>
-<div className="stat-trend-side" style="flex: 1; margin-left: 20px; padding: 10px;">
-                                <canvas id="connections-trend-chart" style="width: 100%; height: 180px;"></canvas>
-                            </div>
-                        </div>
+                    {/* 节点列表 */}
+                    <section className="nodes-list fade-in-up" style="animation-delay: 0.2s;">
+                        <div id="public-stats" style="display: none;"></div>
 
-                        {/* 当前带宽卡片 */}
-<div className="stat-card-item" style="display: flex; align-items: center; justify-content: center;">
-<div className="stat-card-content-vertical" style="width: 240px; flex-shrink: 0;">
-<div className="stat-chart-top" style="display: flex; justify-content: center;">
-                                    <canvas id="bandwidth-chart" width="120" height="120"></canvas>
-                                </div>
-<div className="stat-info-bottom">
-                                    <h3>带宽负载</h3>
-<div className="stat-value" id="bandwidth-text">-/-</div>
-                                </div>
-                            </div>
-<div className="stat-trend-side" style="flex: 1; margin-left: 20px; padding: 10px;">
-                                <canvas id="bandwidth-trend-chart" style="width: 100%; height: 180px;"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-<section className="nodes-list">
-                    <div id="public-stats"
-                         style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none;">
-                        {/* 统计信息将通过JavaScript动态填充 */}
-                    </div>
-                    <hr style="border: none; height: 1px; background-color: #e0e0e0; margin: 30px 0;" />
-                    <NodeTable
-                        mode="home"
-                        showOfflineToggle={true}
-                        containerId="nodes-container"
-                        tableId="nodes-table"
-                    />
-                </section>
-                <NodeEdits mode="admin"/>
+                        <NodeTable
+                            mode="home"
+                            showOfflineToggle={true}
+                            containerId="nodes-container"
+                            tableId="nodes-table"
+                        />
+                    </section>
+
+                    <NodeEdits mode="admin"/>
+                </div>
             </main>
+
             <WebFooter title="公共节点页面"/>
             <script src="/js/common.js"></script>
             <script src="/js/homepage.js"></script>

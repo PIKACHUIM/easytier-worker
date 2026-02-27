@@ -75,39 +75,33 @@ async function loadPublicNodes() {
   try {
     const response = await fetch('/api/public');
     const data = await response.json();
-    
-    const container = document.getElementById('nodes-container');
-    
-    if (data.nodes.length === 0) {
-      container.innerHTML = '<p>暂无在线节点</p>';
-      return;
+    const nodes = data.nodes || [];
+
+    // 使用新版渲染函数（同时更新表格和卡片视图）
+    if ((window as any).renderNodeRows) {
+      const tbody = document.getElementById('nodes-container');
+      if (tbody) {
+        if (nodes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted);">暂无在线节点</td></tr>';
+        } else {
+          tbody.innerHTML = (window as any).renderNodeRows('home', nodes);
+        }
+      }
+    } else {
+      // 降级：直接渲染卡片
+      const cardView = document.getElementById('home-card-view');
+      if (cardView) {
+        if (nodes.length === 0) {
+          cardView.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted);">暂无在线节点</div>';
+        } else if ((window as any).renderNodeCards) {
+          (window as any).renderNodeCards('home', nodes);
+        }
+      }
     }
-    
-    container.innerHTML = data.nodes.map(node => `
-      <div class="node-card">
-        <h3>${escapeHtml(node.node_name)}</h3>
-        <div class="node-info">
-          <strong>地域:</strong> ${node.region_type === 'domestic' ? '国内' : '海外'} - ${escapeHtml(node.region_detail)}
-        </div>
-        <div class="node-info">
-          <strong>带宽:</strong> ${node.current_bandwidth.toFixed(2)} / ${node.tier_bandwidth.toFixed(2)} Mbps
-        </div>
-        <div class="node-info">
-          <strong>流量:</strong> ${node.used_traffic.toFixed(2)} / ${node.max_traffic.toFixed(2)} GB
-        </div>
-        <div class="node-info">
-          <strong>连接数:</strong> ${node.connection_count} / ${node.max_connections}
-        </div>
-        <div class="node-info">
-          <strong>允许中转:</strong> ${node.allow_relay ? '是' : '否'}
-        </div>
-        ${node.tags ? `<div class="node-info"><strong>标签:</strong> ${escapeHtml(node.tags)}</div>` : ''}
-        <span class="node-status ${node.status}">${node.status === 'online' ? '在线' : '离线'}</span>
-      </div>
-    `).join('');
   } catch (error) {
     console.error('加载节点列表失败:', error);
-    document.getElementById('nodes-container').innerHTML = '<p>加载失败，请稍后重试</p>';
+    const cardView = document.getElementById('home-card-view');
+    if (cardView) cardView.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted);">加载失败，请稍后重试</div>';
   }
 }
 

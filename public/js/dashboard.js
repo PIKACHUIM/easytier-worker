@@ -123,12 +123,12 @@ window.viewNodeDetail = (nodeId) => {
 // 复制Token
 window.copyToken = (token) => {
   if (!token) {
-    alert('Token不存在');
+    window.showAlert('Token不存在', { type: 'error' });
     return;
   }
   
   navigator.clipboard.writeText(token).then(() => {
-    alert('Token已复制到剪贴板');
+    window.showAlert('Token已复制到剪贴板', { type: 'success' });
   }).catch(() => {
     // 备用方案
     const textArea = document.createElement('textarea');
@@ -137,13 +137,14 @@ window.copyToken = (token) => {
     textArea.select();
     document.execCommand('copy');
     document.body.removeChild(textArea);
-    alert('Token已复制到剪贴板');
+    window.showAlert('Token已复制到剪贴板', { type: 'success' });
   });
 };
 
 // 重新生成Token
 window.regenerateToken = async (nodeId) => {
-  if (!confirm('确定要重新生成Token吗？重新生成后需要更新节点配置。')) {
+  const confirmed = await window.showConfirm('确定要重新生成Token吗？重新生成后需要更新节点配置。', { title: '重新生成Token', icon: '🔄', danger: false });
+  if (!confirmed) {
     return;
   }
   
@@ -157,16 +158,16 @@ window.regenerateToken = async (nodeId) => {
     });
     
     if (response.ok) {
-      alert('Token重新生成成功');
+      window.showAlert('Token重新生成成功', { type: 'success' });
       loadMyNodes();
       document.getElementById('node-detail-modal').style.display = 'none';
     } else {
       const result = await response.json();
-      alert(result.message || '重新生成Token失败');
+      window.showAlert(result.message || '重新生成Token失败', { type: 'error' });
     }
   } catch (error) {
     console.error('重新生成Token失败:', error);
-    alert('网络错误，请稍后重试');
+    window.showAlert('网络错误，请稍后重试', { type: 'error' });
   }
 };
 
@@ -176,7 +177,7 @@ window.editNode = (nodeId) => {
   const node = nodes.find(n => n.id === nodeId);
   if (!node) {
     console.error('未找到节点，节点ID:', nodeId);
-    alert('未找到节点');
+    window.showAlert('未找到节点', { type: 'error' });
     return;
   }
   
@@ -239,7 +240,8 @@ window.editNode = (nodeId) => {
 
 // 删除节点
 window.deleteNode = async (nodeId) => {
-  if (!confirm('确定要删除这个节点吗？此操作不可恢复。')) {
+  const confirmed = await window.showConfirm('确定要删除这个节点吗？此操作不可恢复。', { title: '删除节点', icon: '🗑️', confirmText: '确认删除', danger: true });
+  if (!confirmed) {
     return;
   }
   
@@ -253,15 +255,15 @@ window.deleteNode = async (nodeId) => {
     });
     
     if (response.ok) {
-      alert('节点删除成功');
+      window.showAlert('节点删除成功', { type: 'success' });
       loadMyNodes();
     } else {
       const result = await response.json();
-      alert(result.message || '删除失败');
+      window.showAlert(result.message || '删除失败', { type: 'error' });
     }
   } catch (error) {
     console.error('删除节点失败:', error);
-    alert('网络错误，请稍后重试');
+    window.showAlert('网络错误，请稍后重试', { type: 'error' });
   }
 };
 
@@ -278,7 +280,7 @@ window.handleNodeSubmit = async (e) => {
   // 收集连接方式数据
   const connections = window.collectConnections();
   if (connections.length === 0) {
-    alert('请至少添加一个连接方式');
+    window.showAlert('请至少添加一个连接方式', { type: 'warning' });
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;
     return;
@@ -341,7 +343,7 @@ window.handleNodeSubmit = async (e) => {
     });
     
 if (response.ok) {
-      alert(nodeId ? '节点更新成功' : '节点添加成功');
+      window.showAlert(nodeId ? '节点更新成功' : '节点添加成功', { type: 'success' });
       form.reset();
       window.clearConnections();
       document.getElementById('dashboard-node-modal').style.display = 'none';
@@ -353,11 +355,11 @@ if (response.ok) {
       });
     } else {
       const result = await response.json();
-      alert(result.error || (nodeId ? '更新失败' : '添加失败'));
+      window.showAlert(result.error || (nodeId ? '更新失败' : '添加失败'), { type: 'error' });
     }
   } catch (error) {
     console.error('保存节点失败:', error);
-    alert('网络错误，请稍后重试');
+    window.showAlert('网络错误，请稍后重试', { type: 'error' });
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;

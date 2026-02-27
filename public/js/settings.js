@@ -5,8 +5,9 @@ async function checkSettingsAuth() {
     const token = localStorage.getItem('token');
 
     if (!token) {
-        alert('请先登录');
-        window.location.href = '/login';
+        window.showAlert('请先登录', { type: 'warning' }).then(function() {
+            window.location.href = '/login';
+        });
         return false;
     }
 
@@ -20,10 +21,11 @@ async function checkSettingsAuth() {
 
         if (!response.ok) {
             if (response.status === 401) {
-                alert('登录已过期，请重新登录');
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                window.location.href = '/login';
+                window.showAlert('登录已过期，请重新登录', { type: 'warning' }).then(function() {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                });
                 return false;
             }
             throw new Error('获取用户信息失败');
@@ -36,18 +38,20 @@ async function checkSettingsAuth() {
 
         // 检查管理员权限
         if (!user.is_admin && !user.is_super_admin) {
-            alert('您的管理员权限已被撤销，无法访问此页面');
-            window.location.href = '/dashboard';
+            window.showAlert('您的管理员权限已被撤销，无法访问此页面', { type: 'error' }).then(function() {
+                window.location.href = '/dashboard';
+            });
             return false;
         }
 
         return user;
     } catch (error) {
         console.error('验证用户权限失败:', error);
-        alert('验证权限失败，请重新登录');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        window.showAlert('验证权限失败，请重新登录', { type: 'error' }).then(function() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        });
         return false;
     }
 }
@@ -150,7 +154,10 @@ async function loadUsers() {
 // 切换用户状态
 window.toggleUserStatus = async (email, isEnabled) => {
     const action = isEnabled ? '禁用' : '启用';
-    if (!confirm(`确定要${action}用户 ${email} 吗？${isEnabled ? '禁用后用户将无法登录系统。' : ''}`)) {
+    const confirmed = await window.showConfirm(`确定要${action}用户 ${email} 吗？${isEnabled ? '禁用后用户将无法登录系统。' : ''}`, {
+        title: `${action}用户`, icon: isEnabled ? '🚫' : '✅', confirmText: `确认${action}`, danger: isEnabled
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -166,15 +173,15 @@ window.toggleUserStatus = async (email, isEnabled) => {
         });
 
         if (response.ok) {
-            alert(`${action}成功`);
+            window.showAlert(`${action}成功`, { type: 'success' });
             loadUsers();
         } else {
             const result = await response.json();
-            alert(result.error || `${action}失败`);
+            window.showAlert(result.error || `${action}失败`, { type: 'error' });
         }
     } catch (error) {
         console.error(`${action}失败:`, error);
-        alert('网络错误，请稍后重试');
+        window.showAlert('网络错误，请稍后重试', { type: 'error' });
     }
 };
 
@@ -209,7 +216,10 @@ function getUserStatusClass(isEnabled) {
 // 切换管理员权限
 window.toggleAdmin = async (email, isAdmin) => {
     const action = isAdmin ? '撤销管理员权限' : '设为管理员';
-    if (!confirm(`确定要${action}用户 ${email} 吗？`)) {
+    const confirmed = await window.showConfirm(`确定要${action}用户 ${email} 吗？`, {
+        title: action, icon: isAdmin ? '🔒' : '🔓', confirmText: '确认', danger: isAdmin
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -225,21 +235,24 @@ window.toggleAdmin = async (email, isAdmin) => {
         });
 
         if (response.ok) {
-            alert(`${action}成功`);
+            window.showAlert(`${action}成功`, { type: 'success' });
             loadUsers();
         } else {
             const result = await response.json();
-            alert(result.error || `${action}失败`);
+            window.showAlert(result.error || `${action}失败`, { type: 'error' });
         }
     } catch (error) {
         console.error(`${action}失败:`, error);
-        alert('网络错误，请稍后重试');
+        window.showAlert('网络错误，请稍后重试', { type: 'error' });
     }
 };
 
 // 删除用户
 window.deleteUser = async (email) => {
-    if (!confirm(`确定要删除用户 ${email} 吗？此操作将同时删除该用户的所有节点，且不可恢复！`)) {
+    const confirmed = await window.showConfirm(`确定要删除用户 ${email} 吗？此操作将同时删除该用户的所有节点，且不可恢复！`, {
+        title: '删除用户', icon: '⚠️', confirmText: '确认删除', danger: true
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -253,15 +266,15 @@ window.deleteUser = async (email) => {
         });
 
         if (response.ok) {
-            alert('用户删除成功');
+            window.showAlert('用户删除成功', { type: 'success' });
             loadUsers();
         } else {
             const result = await response.json();
-            alert(result.error || '删除失败');
+            window.showAlert(result.error || '删除失败', { type: 'error' });
         }
     } catch (error) {
         console.error('删除用户失败:', error);
-        alert('网络错误，请稍后重试');
+        window.showAlert('网络错误，请稍后重试', { type: 'error' });
     }
 };
 

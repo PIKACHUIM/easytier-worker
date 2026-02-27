@@ -11,11 +11,11 @@ export default defineConfig({
         ssrPlugin()
     ],
     server: {
-        port: 5173,
+        port: 5175,
         strictPort: true,
         host: true,
         hmr: {
-            port: 5173
+            port: 5175
         }
     },
     build: {

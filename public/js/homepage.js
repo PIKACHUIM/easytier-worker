@@ -74,10 +74,10 @@ async function loadHomeStats() {
     const tierbandwidth = Number(data.tier_bandwidth_total || 0);
     if (bandwidthTextEl) bandwidthTextEl.textContent = currentBandwidth.toFixed(1) + '/' + tierbandwidth.toFixed(1) + ' M';
 
-    // 更新饼图
-    upsertDonut('nodesChart', 'nodes-chart', onlineNodesCount, totalNodes);
-    upsertDonut('connectionsChart', 'connections-chart', currentConnections, maxConnections);
-    upsertDonut('bandwidthChart', 'bandwidth-chart', currentBandwidth, tierbandwidth);
+    // 更新饼图（各卡片使用对应主题色）
+    upsertDonut('nodesChart', 'nodes-chart', onlineNodesCount, totalNodes, '#10b981');
+    upsertDonut('connectionsChart', 'connections-chart', currentConnections, maxConnections, '#3b82f6');
+    upsertDonut('bandwidthChart', 'bandwidth-chart', currentBandwidth, tierbandwidth, '#f59e0b');
 
     // 更新三个独立的趋势图
     console.log('历史数据:', data.history);
@@ -107,35 +107,56 @@ async function loadHomeStats() {
   }
 }
 
-// 封装：图表更新/创建
-function upsertDonut(chartKey, canvasId, value, total) {
+// 封装：图表更新/创建（支持自定义主题色）
+function upsertDonut(chartKey, canvasId, value, total, activeColor) {
   const ctx = document.getElementById(canvasId);
   if (!ctx || !window.Chart) return;
   const rest = Math.max(0, total - value);
   const data = [value, rest];
-  const colors = ['#667eea', '#e9ecef'];
+  const mainColor = activeColor || '#667eea';
+  // 空余部分颜色：根据主题自适应
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const restColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+  const colors = [mainColor, restColor];
   let chart = window[chartKey];
   if (!chart) {
     chart = new Chart(ctx, {
       type: 'doughnut',
-      data: { datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
+      data: { datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 3 }] },
       options: { 
         plugins: { 
           legend: { display: false }, 
-          tooltip: { enabled: false } 
+          tooltip: {
+            enabled: true,
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            titleColor: '#94a3b8',
+            bodyColor: '#f1f5f9',
+            cornerRadius: 8,
+            padding: 8,
+            displayColors: false,
+            callbacks: {
+              label: function(context) {
+                const val = context.parsed;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const pct = total > 0 ? Math.round(val / total * 100) : 0;
+                return context.dataIndex === 0 ? `已用: ${val} (${pct}%)` : `剩余: ${val}`;
+              }
+            }
+          }
         }, 
-        cutout: '70%',
+        cutout: '72%',
         responsive: false,
         maintainAspectRatio: false,
         animation: {
-          duration: 750,
-          easing: 'easeInOutQuart'
+          duration: 600,
+          easing: 'easeInOutCubic'
         }
       }
     });
     window[chartKey] = chart;
   } else {
     chart.data.datasets[0].data = data;
+    chart.data.datasets[0].backgroundColor = colors;
     chart.update();
   }
 }
@@ -319,7 +340,17 @@ function createFullTrendChart(canvasId, data, color, label, historyData) {
   if (!ctx || !window.Chart) return null;
 
   const labels = generateTimeLabelsFromHistory(historyData);
-  
+  // 生成渐变色背景
+  const gradientFill = (context) => {
+    const chart = context.chart;
+    const { ctx: c, chartArea } = chart;
+    if (!chartArea) return color + '30';
+    const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    gradient.addColorStop(0, color + '55');
+    gradient.addColorStop(1, color + '05');
+    return gradient;
+  };
+
   return new Chart(ctx, {
     type: 'line',
     data: {
@@ -328,12 +359,18 @@ function createFullTrendChart(canvasId, data, color, label, historyData) {
         label: label,
         data: data,
         borderColor: color,
-        backgroundColor: color + '20',
+        backgroundColor: gradientFill,
         borderWidth: 2,
         fill: true,
         tension: 0.4,
-        pointRadius: 1,
-        pointHoverRadius: 4
+        pointRadius: 2,
+        pointBackgroundColor: color,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.5,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: color,
+        pointHoverBorderWidth: 2
       }]
     },
     options: {
@@ -341,7 +378,6 @@ function createFullTrendChart(canvasId, data, color, label, historyData) {
       maintainAspectRatio: false,
       resizeDelay: 100,
       onResize: function(chart, size) {
-        // 确保图表在resize时正确更新
         if (size.width > 0 && size.height > 0) {
           chart.update('none');
         }
@@ -350,31 +386,35 @@ function createFullTrendChart(canvasId, data, color, label, historyData) {
         legend: { 
           display: true,
           position: 'top',
+          align: 'end',
           labels: {
-            color: '#333',
-            font: {
-              size: 12
-            }
+            color: '#64748b',
+            font: { size: 11, weight: '500' },
+            boxWidth: 10,
+            boxHeight: 10,
+            borderRadius: 3,
+            usePointStyle: true,
+            pointStyle: 'circle'
           }
         },
         tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: 'white',
-          bodyColor: 'white',
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          titleColor: '#94a3b8',
+          bodyColor: '#f1f5f9',
           borderColor: color,
           borderWidth: 1,
-          cornerRadius: 4,
+          cornerRadius: 8,
+          padding: 10,
           displayColors: false,
           callbacks: {
             title: function(context) {
-              return context[0].label;
+              return '🕐 ' + context[0].label;
             },
             label: function(context) {
               const value = context.parsed.y;
-              if (label.includes('带宽')) {
-                return value.toFixed(1) + ' M';
-              }
-              return value.toString();
+              if (label.includes('带宽')) return '📡 ' + value.toFixed(1) + ' M';
+              if (label.includes('节点')) return '🖥️ ' + value + ' 个';
+              return '🔗 ' + value;
             }
           }
         }
@@ -382,72 +422,47 @@ function createFullTrendChart(canvasId, data, color, label, historyData) {
       scales: {
         x: {
           display: true,
-          title: {
-            display: true,
-            text: '时间',
-            color: '#666',
-            font: {
-              size: 11
-            }
-          },
+          title: { display: false },
           ticks: {
-            color: '#666',
-            font: {
-              size: 10
-            },
+            color: '#94a3b8',
+            font: { size: 10 },
             maxTicksLimit: 8,
+            maxRotation: 0,
             callback: function(value, index) {
-              // 根据数据长度动态调整显示间隔
               const totalLabels = this.chart.data.labels.length;
               const interval = Math.max(1, Math.floor(totalLabels / 8));
-              if (index % interval === 0) {
-                return this.getLabelForValue(value);
-              }
+              if (index % interval === 0) return this.getLabelForValue(value);
               return '';
             }
           },
           grid: {
-            color: 'rgba(0, 0, 0, 0.1)',
+            color: 'rgba(148, 163, 184, 0.12)',
             lineWidth: 1
-          }
+          },
+          border: { dash: [4, 4], color: 'rgba(148, 163, 184, 0.2)' }
         },
         y: {
           display: true,
-          title: {
-            display: true,
-            text: label,
-            color: '#666',
-            font: {
-              size: 11
-            }
-          },
+          title: { display: false },
           ticks: {
-            color: '#666',
-            font: {
-              size: 10
-            },
+            color: '#94a3b8',
+            font: { size: 10 },
+            maxTicksLimit: 5,
             callback: function(value) {
-              if (label.includes('带宽')) {
-                return value.toFixed(1) + ' M';
-              }
+              if (label.includes('带宽')) return value.toFixed(1) + 'M';
               return Math.round(value);
             }
           },
           grid: {
-            color: 'rgba(0, 0, 0, 0.1)',
+            color: 'rgba(148, 163, 184, 0.12)',
             lineWidth: 1
-          }
-        }
-      },
-      elements: {
-        point: {
-          hoverBackgroundColor: '#fff',
-          hoverBorderWidth: 2
+          },
+          border: { dash: [4, 4], color: 'rgba(148, 163, 184, 0.2)' }
         }
       },
       animation: {
-        duration: 750,
-        easing: 'easeInOutQuart'
+        duration: 600,
+        easing: 'easeInOutCubic'
       }
     }
   });
@@ -459,7 +474,17 @@ function createBandwidthTrendChart(canvasId, currentData, tierbandData, historyD
   if (!ctx || !window.Chart) return null;
 
   const labels = generateTimeLabelsFromHistory(historyData);
-  
+  // 生成渐变色背景
+  const gradientGreen = (context) => {
+    const chart = context.chart;
+    const { ctx: c, chartArea } = chart;
+    if (!chartArea) return '#10b98130';
+    const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    gradient.addColorStop(0, '#10b98155');
+    gradient.addColorStop(1, '#10b98105');
+    return gradient;
+  };
+
   return new Chart(ctx, {
     type: 'line',
     data: {
@@ -467,23 +492,36 @@ function createBandwidthTrendChart(canvasId, currentData, tierbandData, historyD
       datasets: [{
         label: '当前带宽',
         data: currentData,
-        borderColor: '#28a745',
-        backgroundColor: '#28a74520',
+        borderColor: '#10b981',
+        backgroundColor: gradientGreen,
         borderWidth: 2,
         fill: true,
         tension: 0.4,
-        pointRadius: 1,
-        pointHoverRadius: 4
+        pointRadius: 2,
+        pointBackgroundColor: '#10b981',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.5,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: '#10b981',
+        pointHoverBorderWidth: 2
       }, {
         label: '阶梯带宽',
         data: tierbandData,
-        borderColor: '#ffc107',
-        backgroundColor: '#ffc10720',
+        borderColor: '#f59e0b',
+        backgroundColor: 'transparent',
         borderWidth: 2,
+        borderDash: [5, 3],
         fill: false,
         tension: 0.4,
-        pointRadius: 1,
-        pointHoverRadius: 4
+        pointRadius: 2,
+        pointBackgroundColor: '#f59e0b',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.5,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: '#f59e0b',
+        pointHoverBorderWidth: 2
       }]
     },
     options: {
@@ -491,7 +529,6 @@ function createBandwidthTrendChart(canvasId, currentData, tierbandData, historyD
       maintainAspectRatio: false,
       resizeDelay: 100,
       onResize: function(chart, size) {
-        // 确保图表在resize时正确更新
         if (size.width > 0 && size.height > 0) {
           chart.update('none');
         }
@@ -500,27 +537,33 @@ function createBandwidthTrendChart(canvasId, currentData, tierbandData, historyD
         legend: { 
           display: true,
           position: 'top',
+          align: 'end',
           labels: {
-            color: '#333',
-            font: {
-              size: 12
-            }
+            color: '#64748b',
+            font: { size: 11, weight: '500' },
+            boxWidth: 10,
+            boxHeight: 10,
+            borderRadius: 3,
+            usePointStyle: true,
+            pointStyle: 'circle'
           }
         },
         tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleColor: 'white',
-          bodyColor: 'white',
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          titleColor: '#94a3b8',
+          bodyColor: '#f1f5f9',
           borderWidth: 1,
-          cornerRadius: 4,
+          cornerRadius: 8,
+          padding: 10,
           displayColors: true,
           callbacks: {
             title: function(context) {
-              return context[0].label;
+              return '🕐 ' + context[0].label;
             },
             label: function(context) {
               const value = context.parsed.y;
-              return context.dataset.label + ': ' + value.toFixed(1) + ' M';
+              const icon = context.datasetIndex === 0 ? '📡' : '⚡';
+              return icon + ' ' + context.dataset.label + ': ' + value.toFixed(1) + ' M';
             }
           }
         }
@@ -528,69 +571,46 @@ function createBandwidthTrendChart(canvasId, currentData, tierbandData, historyD
       scales: {
         x: {
           display: true,
-          title: {
-            display: true,
-            text: '时间',
-            color: '#666',
-            font: {
-              size: 11
-            }
-          },
+          title: { display: false },
           ticks: {
-            color: '#666',
-            font: {
-              size: 10
-            },
+            color: '#94a3b8',
+            font: { size: 10 },
             maxTicksLimit: 8,
+            maxRotation: 0,
             callback: function(value, index) {
-              // 根据数据长度动态调整显示间隔
               const totalLabels = this.chart.data.labels.length;
               const interval = Math.max(1, Math.floor(totalLabels / 8));
-              if (index % interval === 0) {
-                return this.getLabelForValue(value);
-              }
+              if (index % interval === 0) return this.getLabelForValue(value);
               return '';
             }
           },
           grid: {
-            color: 'rgba(0, 0, 0, 0.1)',
+            color: 'rgba(148, 163, 184, 0.12)',
             lineWidth: 1
-          }
+          },
+          border: { dash: [4, 4], color: 'rgba(148, 163, 184, 0.2)' }
         },
         y: {
           display: true,
-          title: {
-            display: true,
-            text: '带宽 (M)',
-            color: '#666',
-            font: {
-              size: 11
-            }
-          },
+          title: { display: false },
           ticks: {
-            color: '#666',
-            font: {
-              size: 10
-            },
+            color: '#94a3b8',
+            font: { size: 10 },
+            maxTicksLimit: 5,
             callback: function(value) {
-              return value.toFixed(1) + ' M';
+              return value.toFixed(1) + 'M';
             }
           },
           grid: {
-            color: 'rgba(0, 0, 0, 0.1)',
+            color: 'rgba(148, 163, 184, 0.12)',
             lineWidth: 1
-          }
-        }
-      },
-      elements: {
-        point: {
-          hoverBackgroundColor: '#fff',
-          hoverBorderWidth: 2
+          },
+          border: { dash: [4, 4], color: 'rgba(148, 163, 184, 0.2)' }
         }
       },
       animation: {
-        duration: 750,
-        easing: 'easeInOutQuart'
+        duration: 600,
+        easing: 'easeInOutCubic'
       }
     }
   });
@@ -615,7 +635,7 @@ function updateNodesTrendChart(historyData, currentValue) {
       if (container) {
         const containerRect = container.getBoundingClientRect();
         if (containerRect.width > 0 && containerRect.height > 0) {
-          chart = createFullTrendChart('nodes-trend-chart', data, '#667eea', '在线节点', historyData);
+    chart = createFullTrendChart('nodes-trend-chart', data, '#10b981', '在线节点', historyData);
           window.nodesTrendChart = chart;
         } else {
           console.warn('节点趋势图容器尺寸无效，重试中...');
@@ -649,7 +669,7 @@ function updateConnectionsTrendChart(historyData, currentValue) {
       if (container) {
         const containerRect = container.getBoundingClientRect();
         if (containerRect.width > 0 && containerRect.height > 0) {
-          chart = createFullTrendChart('connections-trend-chart', data, '#764ba2', '连接数', historyData);
+          chart = createFullTrendChart('connections-trend-chart', data, '#3b82f6', '连接数', historyData);
           window.connectionsTrendChart = chart;
         } else {
           console.warn('连接数趋势图容器尺寸无效，重试中...');

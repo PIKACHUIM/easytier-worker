@@ -66,11 +66,48 @@ async function loadNodes(apiEndpoint, mode, cacheKey, colSpan, customEmptyMessag
             !document.getElementById('show-offline-toggle').checked ?
                 '暂无在线节点' : emptyMessage;
             container.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center;">${message}</td></tr>`;
+            // 同时更新卡片视图为空状态
+            var cardMode = mode === 'public' ? 'home' : (mode === 'my' ? 'dashboard' : mode);
+            var cardView = document.getElementById(cardMode + '-card-view');
+            if (cardView) {
+                cardView.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted);">' + message + '</div>';
+            }
             return;
         }
 
-        // 使用统一渲染器
+        // 使用统一渲染器写入表格行
         container.innerHTML = renderNodeRows(mode, data.nodes);
+
+        // 同时渲染卡片视图
+        // mode映射：public->home, my->dashboard, admin->admin
+        var cardMode = mode === 'public' ? 'home' : (mode === 'my' ? 'dashboard' : mode);
+        var cardView = document.getElementById(cardMode + '-card-view');
+        if (cardView) {
+            if (window.renderNodeCards) {
+                window.renderNodeCards(cardMode, data.nodes);
+            } else {
+                // 降级：直接生成简单卡片
+                cardView.innerHTML = data.nodes.map(function(node) {
+                    var isOnline = node.status === 'online';
+                    var statusClass = isOnline ? 'online-card' : 'offline-card';
+                    var statusText = isOnline ? '在线' : '离线';
+                    var bw = Number(node.current_bandwidth || 0).toFixed(1);
+                    var maxBw = Number(node.max_bandwidth || 0);
+                    var conn = Number(node.connection_count || 0);
+                    var maxConn = Number(node.max_connections || 0);
+                    return '<div class="node-card-view ' + statusClass + '">' +
+                        '<div class="node-card-header">' +
+                            '<div class="node-card-name">' + escapeHtml(node.node_name) + '</div>' +
+                            '<span class="node-status ' + (isOnline ? 'online' : 'offline') + '">' + statusText + '</span>' +
+                        '</div>' +
+                        '<div class="node-card-metrics">' +
+                            '<div class="node-metric"><div class="node-metric-label">带宽</div><div class="node-metric-value">' + bw + '/' + maxBw + '</div></div>' +
+                            '<div class="node-metric"><div class="node-metric-label">连接</div><div class="node-metric-value">' + conn + '/' + maxConn + '</div></div>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+            }
+        }
     } catch (error) {
         console.error('加载节点列表失败:', error);
         const container = document.getElementById('nodes-container');
@@ -358,7 +395,7 @@ function showNodeDetail(nodeId, mode, modalId, titleId, contentId) {
             const nodes = window.adminNodesCache || [];
             node = nodes.find(n => n.id === nodeId);
             if (!node) {
-                alert('未找到节点');
+                window.showAlert('未找到节点', { type: 'error' });
                 return;
             }
             renderNodeDetail(node, mode, modalId, titleId, contentId);
@@ -367,14 +404,14 @@ function showNodeDetail(nodeId, mode, modalId, titleId, contentId) {
             const nodes = window.publicNodesCache || [];
             node = nodes.find(n => n.id === nodeId);
             if (!node) {
-                alert('未找到节点');
+                window.showAlert('未找到节点', { type: 'error' });
                 return;
             }
             renderNodeDetail(node, mode, modalId, titleId, contentId);
         }
     } catch (error) {
         console.error('获取节点详情失败:', error);
-        alert('获取节点详情失败');
+        window.showAlert('获取节点详情失败', { type: 'error' });
     }
 }
 
@@ -507,6 +544,10 @@ const content = [
     }
     
     if (modalElement) {
+        // 将模态框移动到body下，避免被父元素的stacking context遮挡
+        if (modalElement.parentElement !== document.body) {
+            document.body.appendChild(modalElement);
+        }
         modalElement.style.display = 'block';
     } else {
         console.error('找不到模态框元素:', modalId);
@@ -662,3 +703,151 @@ window.fallbackCopyTextToClipboard = fallbackCopyTextToClipboard;
 window.showCopySuccess = showCopySuccess;
 window.showCopyError = showCopyError;
 window.setupNodeStatusToggle = window.setupNodeStatusToggle;
+
+/* ===== 统一弹窗系统（替代原生 alert / confirm）===== */
+(function() {
+  // 注入弹窗样式（只注入一次）
+  function injectDialogStyles() {
+    if (document.getElementById('__dialog-styles')) return;
+    var style = document.createElement('style');
+    style.id = '__dialog-styles';
+    style.textContent = `
+      .__dialog-overlay {
+        position: fixed; inset: 0; z-index: 99999;
+        background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center;
+        animation: __dlg-fade-in 0.18s ease;
+      }
+      @keyframes __dlg-fade-in { from { opacity:0; } to { opacity:1; } }
+      .__dialog-box {
+        background: var(--bg-glass, #1e1e3a);
+        border: 1px solid var(--bg-glass-border, rgba(255,255,255,0.12));
+        border-radius: 16px;
+        padding: 28px 32px 24px;
+        min-width: 320px; max-width: 440px; width: 90%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        animation: __dlg-slide-in 0.2s cubic-bezier(0.34,1.56,0.64,1);
+        color: var(--text-primary, #f1f5f9);
+      }
+      @keyframes __dlg-slide-in { from { transform: scale(0.88) translateY(-16px); opacity:0; } to { transform: scale(1) translateY(0); opacity:1; } }
+      .__dialog-icon { font-size: 32px; margin-bottom: 12px; text-align: center; }
+      .__dialog-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary, #f1f5f9); }
+      .__dialog-msg { font-size: 14px; color: var(--text-secondary, #94a3b8); line-height: 1.6; margin-bottom: 20px; }
+      .__dialog-btns { display: flex; gap: 10px; justify-content: flex-end; }
+      .__dialog-btn {
+        padding: 8px 20px; border-radius: 8px; border: none; cursor: pointer;
+        font-size: 14px; font-weight: 600; transition: all 0.15s ease;
+      }
+      .__dialog-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+      .__dialog-btn-primary {
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        color: #fff; box-shadow: 0 4px 12px rgba(79,70,229,0.4);
+      }
+      .__dialog-btn-danger {
+        background: linear-gradient(135deg, #ef4444, #f87171);
+        color: #fff; box-shadow: 0 4px 12px rgba(239,68,68,0.4);
+      }
+      .__dialog-btn-cancel {
+        background: var(--bg-card, rgba(255,255,255,0.08));
+        color: var(--text-secondary, #94a3b8);
+        border: 1px solid var(--bg-glass-border, rgba(255,255,255,0.12));
+      }
+      [data-theme="light"] .__dialog-box {
+        background: #fff; border-color: rgba(79,70,229,0.15); color: #1e1b4b;
+      }
+      [data-theme="light"] .__dialog-title { color: #1e1b4b; }
+      [data-theme="light"] .__dialog-msg { color: #4338ca; }
+      [data-theme="light"] .__dialog-btn-cancel { background: #f0f4ff; color: #4338ca; border-color: rgba(79,70,229,0.2); }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * 显示提示弹窗（替代 alert）
+   * @param {string} message - 消息内容
+   * @param {object} [opts] - 可选配置 { title, icon, type: 'info'|'success'|'warning'|'error' }
+   * @returns {Promise<void>}
+   */
+  window.showAlert = function(message, opts) {
+    injectDialogStyles();
+    opts = opts || {};
+    var type = opts.type || 'info';
+    var iconMap = { info: 'ℹ️', success: '✅', warning: '⚠️', error: '❌' };
+    var titleMap = { info: '提示', success: '成功', warning: '警告', error: '错误' };
+    var icon = opts.icon || iconMap[type] || 'ℹ️';
+    var title = opts.title || titleMap[type] || '提示';
+
+    return new Promise(function(resolve) {
+      var overlay = document.createElement('div');
+      overlay.className = '__dialog-overlay';
+      overlay.innerHTML =
+        '<div class="__dialog-box">' +
+          '<div class="__dialog-icon">' + icon + '</div>' +
+          '<div class="__dialog-title">' + title + '</div>' +
+          '<div class="__dialog-msg">' + escapeHtml(message) + '</div>' +
+          '<div class="__dialog-btns">' +
+            '<button class="__dialog-btn __dialog-btn-primary" id="__dlg-ok">确定</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      overlay.querySelector('#__dlg-ok').focus();
+      function close() {
+        overlay.style.animation = 'none';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.15s';
+        setTimeout(function() { document.body.removeChild(overlay); resolve(); }, 150);
+      }
+      overlay.querySelector('#__dlg-ok').addEventListener('click', close);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+      document.addEventListener('keydown', function handler(e) {
+        if (e.key === 'Enter' || e.key === 'Escape') { document.removeEventListener('keydown', handler); close(); }
+      });
+    });
+  };
+
+  /**
+   * 显示确认弹窗（替代 confirm）
+   * @param {string} message - 消息内容
+   * @param {object} [opts] - 可选配置 { title, icon, confirmText, cancelText, danger }
+   * @returns {Promise<boolean>}
+   */
+  window.showConfirm = function(message, opts) {
+    injectDialogStyles();
+    opts = opts || {};
+    var icon = opts.icon || '❓';
+    var title = opts.title || '确认操作';
+    var confirmText = opts.confirmText || '确定';
+    var cancelText = opts.cancelText || '取消';
+    var isDanger = opts.danger !== false && (opts.danger || true);
+
+    return new Promise(function(resolve) {
+      var overlay = document.createElement('div');
+      overlay.className = '__dialog-overlay';
+      overlay.innerHTML =
+        '<div class="__dialog-box">' +
+          '<div class="__dialog-icon">' + icon + '</div>' +
+          '<div class="__dialog-title">' + title + '</div>' +
+          '<div class="__dialog-msg">' + escapeHtml(message) + '</div>' +
+          '<div class="__dialog-btns">' +
+            '<button class="__dialog-btn __dialog-btn-cancel" id="__dlg-cancel">' + cancelText + '</button>' +
+            '<button class="__dialog-btn ' + (isDanger ? '__dialog-btn-danger' : '__dialog-btn-primary') + '" id="__dlg-confirm">' + confirmText + '</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      overlay.querySelector('#__dlg-confirm').focus();
+      function close(result) {
+        overlay.style.animation = 'none';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.15s';
+        setTimeout(function() { document.body.removeChild(overlay); resolve(result); }, 150);
+      }
+      overlay.querySelector('#__dlg-confirm').addEventListener('click', function() { close(true); });
+      overlay.querySelector('#__dlg-cancel').addEventListener('click', function() { close(false); });
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) close(false); });
+      document.addEventListener('keydown', function handler(e) {
+        if (e.key === 'Enter') { document.removeEventListener('keydown', handler); close(true); }
+        if (e.key === 'Escape') { document.removeEventListener('keydown', handler); close(false); }
+      });
+    });
+  };
+})();

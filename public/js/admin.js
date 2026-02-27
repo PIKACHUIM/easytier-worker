@@ -18,10 +18,11 @@ async function checkAdminAuth() {
     
     if (!response.ok) {
       if (response.status === 401) {
-        alert('登录已过期，请重新登录');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        window.showAlert('登录已过期，请重新登录', { type: 'warning' }).then(function() {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        });
         return false;
       }
       throw new Error('获取用户信息失败');
@@ -34,18 +35,20 @@ async function checkAdminAuth() {
     
     // 检查管理员权限
     if (!user.is_admin && !user.is_super_admin) {
-      alert('您的管理员权限已被撤销，无法访问此页面');
-      window.location.href = '/dashboard';
+      window.showAlert('您的管理员权限已被撤销，无法访问此页面', { type: 'error' }).then(function() {
+        window.location.href = '/dashboard';
+      });
       return false;
     }
     
     return user;
   } catch (error) {
     console.error('验证用户权限失败:', error);
-    alert('验证权限失败，请重新登录');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
+    window.showAlert('验证权限失败，请重新登录', { type: 'error' }).then(function() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    });
     return false;
   }
 }
@@ -168,7 +171,7 @@ window.copyAdminToken = (nodeId) => {
   const node = nodes.find(n => n.id === nodeId);
   if (node && node.report_token) {
     navigator.clipboard.writeText(node.report_token).then(() => {
-      alert('Token已复制到剪贴板');
+      window.showAlert('Token已复制到剪贴板', { type: 'success' });
     }).catch(() => {
       // 备用方案
       const textArea = document.createElement('textarea');
@@ -177,16 +180,17 @@ window.copyAdminToken = (nodeId) => {
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      alert('Token已复制到剪贴板');
+      window.showAlert('Token已复制到剪贴板', { type: 'success' });
     });
   } else {
-    alert('Token不存在');
+    window.showAlert('Token不存在', { type: 'error' });
   }
 };
 
 // 重新生成管理员Token
 window.regenerateAdminToken = async (nodeId) => {
-  if (!confirm('确定要重新生成Token吗？重新生成后需要更新节点配置。')) {
+  const confirmed = await window.showConfirm('确定要重新生成Token吗？重新生成后需要更新节点配置。', { title: '重新生成Token', icon: '🔄', danger: false });
+  if (!confirmed) {
     return;
   }
   
@@ -200,16 +204,16 @@ window.regenerateAdminToken = async (nodeId) => {
     });
     
     if (response.ok) {
-      alert('Token重新生成成功');
+      window.showAlert('Token重新生成成功', { type: 'success' });
       loadAllNodes();
       document.getElementById('admin-node-detail-modal').style.display = 'none';
     } else {
       const result = await response.json();
-      alert(result.message || '重新生成Token失败');
+      window.showAlert(result.message || '重新生成Token失败', { type: 'error' });
     }
   } catch (error) {
     console.error('重新生成Token失败:', error);
-    alert('网络错误，请稍后重试');
+    window.showAlert('网络错误，请稍后重试', { type: 'error' });
   }
 };
 
@@ -218,7 +222,7 @@ window.editAdminNode = (nodeId) => {
   const nodes = window.adminNodesCache || [];
   const node = nodes.find(n => n.id === nodeId);
   if (!node) {
-    alert('未找到节点');
+    window.showAlert('未找到节点', { type: 'error' });
     return;
   }
   
@@ -275,12 +279,19 @@ window.editAdminNode = (nodeId) => {
   }
   
   document.getElementById('admin-modal-title').textContent = '编辑节点';
-  document.getElementById('admin-node-modal').style.display = 'block';
+  const adminNodeModal = document.getElementById('admin-node-modal');
+  if (adminNodeModal) {
+    if (adminNodeModal.parentElement !== document.body) {
+      document.body.appendChild(adminNodeModal);
+    }
+    adminNodeModal.style.display = 'block';
+  }
 };
 
 // 删除管理员节点
 window.deleteAdminNode = async (nodeId) => {
-  if (!confirm('确定要删除这个节点吗？此操作不可恢复。')) {
+  const confirmed = await window.showConfirm('确定要删除这个节点吗？此操作不可恢复。', { title: '删除节点', icon: '🗑️', confirmText: '确认删除', danger: true });
+  if (!confirmed) {
     return;
   }
   
@@ -294,15 +305,15 @@ window.deleteAdminNode = async (nodeId) => {
     });
     
     if (response.ok) {
-      alert('节点删除成功');
+      window.showAlert('节点删除成功', { type: 'success' });
       loadAllNodes();
     } else {
       const result = await response.json();
-      alert(result.message || '删除失败');
+      window.showAlert(result.message || '删除失败', { type: 'error' });
     }
   } catch (error) {
     console.error('删除节点失败:', error);
-    alert('网络错误，请稍后重试');
+    window.showAlert('网络错误，请稍后重试', { type: 'error' });
   }
 };
 
@@ -319,7 +330,7 @@ window.handleAdminNodeSubmit = async (e) => {
   // 收集连接方式数据
   const connections = window.collectAdminConnections();
   if (connections.length === 0) {
-    alert('请至少添加一个连接方式');
+    window.showAlert('请至少添加一个连接方式', { type: 'warning' });
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;
     return;
@@ -374,7 +385,7 @@ const data = {
     });
     
 if (response.ok) {
-      alert(nodeId ? '节点更新成功' : '节点添加成功');
+      window.showAlert(nodeId ? '节点更新成功' : '节点添加成功', { type: 'success' });
       form.reset();
       window.clearAdminConnections();
       document.getElementById('admin-node-modal').style.display = 'none';
@@ -386,11 +397,11 @@ if (response.ok) {
       });
     } else {
       const result = await response.json();
-      alert(result.error || (nodeId ? '更新失败' : '添加失败'));
+      window.showAlert(result.error || (nodeId ? '更新失败' : '添加失败'), { type: 'error' });
     }
   } catch (error) {
     console.error('保存节点失败:', error);
-    alert('网络错误，请稍后重试');
+    window.showAlert('网络错误，请稍后重试', { type: 'error' });
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;
@@ -429,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('admin-node-modal').style.display = 'none';
   });
   
-document.getElementById('add-node-btn')?.addEventListener('click', () => {
+    document.getElementById('add-node-btn')?.addEventListener('click', () => {
     document.getElementById('admin-modal-title').textContent = '添加节点';
     document.getElementById('admin-node-form').reset();
     document.getElementById('admin-node-id').value = '';
@@ -454,7 +465,13 @@ document.getElementById('add-node-btn')?.addEventListener('click', () => {
       enabledCheckbox.title = '未审核状态下无法启用节点';
     }
     
-    document.getElementById('admin-node-modal').style.display = 'block';
+    const adminNodeModal = document.getElementById('admin-node-modal');
+    if (adminNodeModal) {
+      if (adminNodeModal.parentElement !== document.body) {
+        document.body.appendChild(adminNodeModal);
+      }
+      adminNodeModal.style.display = 'block';
+    }
   });
   
 // 表单提交事件

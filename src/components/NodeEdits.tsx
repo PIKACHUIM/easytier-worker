@@ -1,4 +1,4 @@
-// 节点表单组件
+// 节点表单组件 - 现代设计
 interface NodeFormProps {
     mode: 'admin' | 'dashboard';
     modalId?: string;
@@ -17,12 +17,14 @@ function NodeEdits({
 
     return (
         <div id={modalId} className="modal" style={{display: 'none'}}>
-            <div className="modal-content" style={{maxWidth: '800px'}}>
-                <span className="close" id={`${prefix}modal-close`}>&times;</span>
+            <div className="modal-content" style={{maxWidth: '760px', margin: '0 auto'}}>
+                <button className="close" id={`${prefix}modal-close`}>&times;</button>
                 <h2 id={`${prefix}modal-title`}>{title}</h2>
+
                 <form id={formId}>
                     <input type="hidden" id={`${prefix}node-id`}/>
 
+                    {/* 节点名称 */}
                     <div className="form-group">
                         <label htmlFor={`${prefix}node-name`}>节点名称 *</label>
                         <input
@@ -33,7 +35,8 @@ function NodeEdits({
                         />
                     </div>
 
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                    {/* 地域信息 */}
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px'}}>
                         <div className="form-group">
                             <label htmlFor={`${prefix}region-type`}>地域类型 *</label>
                             <select id={`${prefix}region-type`} required>
@@ -51,7 +54,8 @@ function NodeEdits({
                         </div>
                     </div>
 
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                    {/* 测试网络 */}
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px'}}>
                         <div className="form-group">
                             <label htmlFor={`${prefix}network-name`}>测试网络名称</label>
                             <input
@@ -70,6 +74,7 @@ function NodeEdits({
                         </div>
                     </div>
 
+                    {/* 连接方式 */}
                     <div className="form-group">
                         <label>连接方式 *</label>
                         <div id={`${prefix}connections-container`} style={{marginBottom: '10px'}}></div>
@@ -83,7 +88,8 @@ function NodeEdits({
                         </button>
                     </div>
 
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                    {/* 带宽和连接数 */}
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px'}}>
                         <div className="form-group">
                             <label htmlFor={`${prefix}max-bandwidth`}>最大带宽 (Mbps) *</label>
                             <input
@@ -109,7 +115,8 @@ function NodeEdits({
                         </div>
                     </div>
 
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
+                    {/* 流量和重置 */}
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px'}}>
                         <div className="form-group">
                             <label htmlFor={`${prefix}max-traffic`}>最大流量 (GB) *</label>
                             <input
@@ -138,94 +145,96 @@ function NodeEdits({
                         </div>
                     </div>
 
-                    {/* 为个人节点模式也添加有效期设置 */}
+                    {/* 有效期 */}
                     <div className="form-group">
                         <label htmlFor={`${prefix}valid-until`}>有效期至 *</label>
-                        <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-                            <input type="date" id={`${prefix}valid-until`} required/>
-                            <label
-                                style={{display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap'}}>
-                                <input type="checkbox" id={`${prefix}valid-long-term`} style={{width: '24px'}}/>
+                        <div style={{display: 'flex', gap: '12px', alignItems: 'center'}}>
+                            <input type="date" id={`${prefix}valid-until`} required style={{flex: 1}}/>
+                            <label style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                whiteSpace: 'nowrap', cursor: 'pointer',
+                                color: 'var(--text-secondary)', fontSize: '13px'
+                            }}>
+                                <input type="checkbox" id={`${prefix}valid-long-term`}
+                                       style={{width: '16px', height: '16px', accentColor: 'var(--primary)'}}/>
                                 长期有效
                             </label>
                         </div>
                     </div>
 
-<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px'}}>
-                        <div className="form-group">
-                            <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <input
-                                    type="checkbox"
-                                    id={`${prefix}allow-relay`}
-                                    style={{width: 'auto'}}
-                                />
-                                允许中转
-                            </label>
-                        </div>
+                    {/* 状态选项 */}
+                    <div style={{
+                        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px',
+                        background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
+                        padding: '16px', border: '1px solid var(--bg-glass-border)',
+                        marginBottom: '20px'
+                    }}>
+                        <label style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '500'
+                        }}>
+                            <input
+                                type="checkbox"
+                                id={`${prefix}allow-relay`}
+                                style={{width: '16px', height: '16px', accentColor: 'var(--primary)'}}
+                            />
+                            允许中转
+                        </label>
 
-                        <div className="form-group">
-                            <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <input
-                                    type="checkbox"
-                                    id={`${prefix}is-enabled`}
-                                    style={{width: 'auto'}}
-                                    defaultChecked={mode === 'dashboard'} // 管理员模式下默认不选中
-                                />
-                                节点启用
-                            </label>
-                        </div>
+                        <label style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '500'
+                        }}>
+                            <input
+                                type="checkbox"
+                                id={`${prefix}is-enabled`}
+                                style={{width: '16px', height: '16px', accentColor: 'var(--primary)'}}
+                                defaultChecked={mode === 'dashboard'}
+                            />
+                            节点启用
+                        </label>
 
-                        <div className="form-group">
-                            <label style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <input
-                                    type="checkbox"
-                                    id={`${prefix}is-approved`}
-                                    style={{width: 'auto', cursor: mode === 'admin' ? 'pointer' : 'not-allowed'}}
-                                    disabled={mode !== 'admin'}
-                                />
-                                通过审核
-                            </label>
-                        </div>
+                        <label style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            cursor: mode === 'admin' ? 'pointer' : 'not-allowed',
+                            color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '500',
+                            opacity: mode === 'admin' ? 1 : 0.5
+                        }}>
+                            <input
+                                type="checkbox"
+                                id={`${prefix}is-approved`}
+                                style={{
+                                    width: '16px', height: '16px', accentColor: 'var(--primary)',
+                                    cursor: mode === 'admin' ? 'pointer' : 'not-allowed'
+                                }}
+                                disabled={mode !== 'admin'}
+                            />
+                            通过审核
+                        </label>
                     </div>
 
-                    {/* 添加状态联动逻辑的脚本 */}
+                    {/* 管理员模式的状态联动脚本 */}
                     {mode === 'admin' && (
                         <script dangerouslySetInnerHTML={{
                             __html: `
-                                // 节点启用和审核状态联动逻辑
                                 document.addEventListener('DOMContentLoaded', function() {
-                                    const enabledCheckbox = document.getElementById('admin-is-enabled');
-                                    const approvedCheckbox = document.getElementById('admin-is-approved');
-                                    
+                                    var enabledCheckbox = document.getElementById('admin-is-enabled');
+                                    var approvedCheckbox = document.getElementById('admin-is-approved');
                                     if (enabledCheckbox && approvedCheckbox) {
-                                        // 当节点启用状态改变时
                                         enabledCheckbox.addEventListener('change', function() {
-                                            if (this.checked) {
-                                                // 如果启用节点，自动勾选通过审核
-                                                approvedCheckbox.checked = true;
-                                                approvedCheckbox.disabled = false;
-                                            } else {
-                                                // 如果禁用节点，保持审核状态不变（允许管理员手动控制）
-                                                // approvedCheckbox 状态保持不变
-                                            }
+                                            if (this.checked) { approvedCheckbox.checked = true; approvedCheckbox.disabled = false; }
                                         });
-                                        
-                                        // 当审核状态改变时
                                         approvedCheckbox.addEventListener('change', function() {
-                                            if (!this.checked) {
-                                                // 如果取消审核，自动禁用节点
-                                                enabledCheckbox.checked = false;
-                                            } else {
-                                                // 如果通过审核，可以选择是否启用节点
-                                                enabledCheckbox.disabled = false;
-                                            }
+                                            if (!this.checked) { enabledCheckbox.checked = false; }
+                                            else { enabledCheckbox.disabled = false; }
                                         });
                                     }
                                 });
                             `
-                        }} />
+                        }}/>
                     )}
 
+                    {/* 标签 */}
                     <div className="form-group">
                         <label htmlFor={`${prefix}tags`}>标签</label>
                         <input
@@ -235,6 +244,7 @@ function NodeEdits({
                         />
                     </div>
 
+                    {/* 下线通知 */}
                     <div className="form-group">
                         <label htmlFor={`${prefix}offline-notify`}>节点首次下线通知</label>
                         <select id={`${prefix}offline-notify`}>
@@ -246,6 +256,7 @@ function NodeEdits({
                         <small>节点超过10分钟未上报时，系统将根据此设置发送通知（1小时内最多通知一次）</small>
                     </div>
 
+                    {/* 备注 */}
                     <div className="form-group">
                         <label htmlFor={`${prefix}notes`}>备注信息</label>
                         <textarea
@@ -254,7 +265,7 @@ function NodeEdits({
                         />
                     </div>
 
-                    <button type="submit" className="btn-primary">保存节点</button>
+                    <button type="submit" style={{width: '100%'}}>保存节点</button>
                 </form>
             </div>
         </div>
