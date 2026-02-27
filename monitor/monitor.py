@@ -9,8 +9,8 @@ import platform
 import subprocess
 import sys
 import time
-import urllib.request
-import urllib.error
+import re
+import requests
 from typing import Dict, List, Optional
 from datetime import datetime
 import signal
@@ -31,7 +31,13 @@ class MonitorNew:
         self.jwt_token = jwt_token
         self.headers = {
             'Authorization': f'Bearer {jwt_token}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
         }
         self.cached_nodes = []  # 本地缓存的节点数据
         self.running = True  # 运行标志
@@ -56,29 +62,27 @@ class MonitorNew:
         headers = self.headers.copy()
 
         try:
-            if data:
-                data_bytes = json.dumps(data).encode('utf-8')
-                request = urllib.request.Request(url, data=data_bytes, method=method)
+            if method == 'GET':
+                response = requests.get(url, headers=headers, timeout=10)
+            elif method == 'POST':
+                response = requests.post(url, headers=headers, json=data, timeout=10)
             else:
-                request = urllib.request.Request(url, method=method)
+                response = requests.request(method, url, headers=headers, json=data, timeout=10)
 
-            for key, value in headers.items():
-                request.add_header(key, value)
+            response.raise_for_status()
+            # logger.info(f"响应内容: {response.text}")
+            result = response.json()
+            logger.debug(f"API请求成功: {method} {endpoint}")
+            return result
 
-            with urllib.request.urlopen(request, timeout=10) as response:
-                result = json.loads(response.read().decode('utf-8'))
-                logger.debug(f"API请求成功: {method} {endpoint}")
-                return result
-
-        except urllib.error.HTTPError as e:
-            logger.error(f"HTTP错误 {e.code}: {method} {endpoint}")
-            try:
-                error_data = json.loads(e.read().decode('utf-8'))
-                logger.error(f"错误详情: {error_data}")
-            except:
-                pass
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP错误 {e.response.status_code}: {method} {endpoint}")
+            # logger.error(f"响应内容: {e.response.text}")
         except Exception as e:
             logger.error(f"API请求失败: {method} {endpoint} - {str(e)}")
+            logger.error(f"错误详情: {e}")
+            import traceback
+            traceback.print_exc()
         return None
 
     def fetch_nodes_from_api(self) -> List[Dict]:
@@ -126,7 +130,7 @@ class MonitorNew:
             '--network-secret', network_secret
         ]
         
-        logger.debug(f"执行checker命令: {' '.join(cmd)}")
+        logger.info(f"执行checker命令: {' '.join(cmd)}")
         
         try:
             # 执行checker.exe，指定UTF-8编码避免解码错误
@@ -141,13 +145,26 @@ class MonitorNew:
             output = result.stdout.strip()
             logger.debug(f"节点 {node_name} checker完整输出: {output}")
             
-            # 只取最后一行数据（忽略日志信息）
+            # 过滤 ANSI 转义码（如终端颜色控制字符 \x1b[...m）
+            ansi_escape = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
+            output = ansi_escape.sub('', output)
+            
+            # 遍历所有行，找第一个符合数据格式的行（忽略日志行）
             lines = output.split('\n')
-            last_line = lines[-1].strip() if lines else ''
-            logger.debug(f"节点 {node_name} checker最后一行: {last_line}")
+            data_line = ''
+            for line in lines:
+                stripped = line.strip()
+                parts_try = stripped.split()
+                # 数据行格式: "1 100 0 0 0"，5个数字，第一个为0或1
+                if len(parts_try) >= 5 and all(
+                    p.replace('.', '', 1).lstrip('-').isdigit() for p in parts_try[:5]
+                ):
+                    data_line = stripped
+                    break
+            logger.debug(f"节点 {node_name} checker数据行: {data_line}")
             
             # 解析输出: "1 100 0 0 0" -> [在线状态, 连接数, 带宽, 阶梯, 流量]
-            parts = last_line.split()
+            parts = data_line.split()
             if len(parts) >= 5:
                 is_online = int(parts[0])
                 connection_count = int(parts[1])
@@ -189,17 +206,8 @@ class MonitorNew:
             if check_result:
                 results.append(check_result)
             else:
-                # 如果检测失败，标记为离线
-                results.append({
-                    'node': node,
-                    'is_online': False,
-                    'connection_count': 0,
-                    'bandwidth': 0,
-                    'tier': 0,
-                    'traffic': 0,
-                    'status': 'offline',
-                    'check_time': datetime.utcnow().isoformat()
-                })
+                # checker输出格式不正确或检测失败，跳过不上报
+                logger.warning(f"节点 {node_name} checker输出格式不正确或检测失败，跳过上报")
         
         logger.info(f"检测完成: {len(results)} 个节点")
         return results

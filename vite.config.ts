@@ -10,6 +10,9 @@ export default defineConfig({
         }),
         ssrPlugin()
     ],
+    esbuild: {
+        keepNames: true,
+    },
     server: {
         port: 5175,
         strictPort: true,

@@ -72,7 +72,12 @@ async function loadHomeStats() {
 
     const currentBandwidth = Number(data.current_bandwidth_total || 0);
     const tierbandwidth = Number(data.tier_bandwidth_total || 0);
-    if (bandwidthTextEl) bandwidthTextEl.textContent = currentBandwidth.toFixed(1) + '/' + tierbandwidth.toFixed(1) + ' M';
+    function formatBandwidth(mbVal) {
+      if (mbVal >= 1024 * 1024) return (mbVal / (1024 * 1024)).toFixed(0) + ' T';
+      if (mbVal >= 1024) return (mbVal / 1024).toFixed(0) + ' G';
+      return mbVal.toFixed(0) + ' M';
+    }
+    if (bandwidthTextEl) bandwidthTextEl.textContent = formatBandwidth(currentBandwidth) + '/' + formatBandwidth(tierbandwidth);
 
     // 更新饼图（各卡片使用对应主题色）
     upsertDonut('nodesChart', 'nodes-chart', onlineNodesCount, totalNodes, '#10b981');
