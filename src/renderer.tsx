@@ -1,5 +1,4 @@
 import {jsxRenderer} from 'hono/jsx-renderer'
-import chartUmd from '../public/chart.umd.min.cjs?raw'
 
 export const renderer = jsxRenderer(({children}) => {
     return (
@@ -2086,7 +2085,7 @@ window.renderNodeRows = function(mode, nodes) {
         </head>
         <body>
         {children}
-        <script dangerouslySetInnerHTML={{__html: chartUmd}}/>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <script dangerouslySetInnerHTML={{
             __html: `
 (function() {

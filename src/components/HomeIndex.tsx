@@ -49,7 +49,6 @@ function HomeIndex() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="stat-card-icon green">🖥️</div>
                                 </div>
                                 {/* 趋势折线图 */}
                                 <div className="stat-card-chart" style="margin-top: 12px;">
@@ -79,7 +78,6 @@ function HomeIndex() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="stat-card-icon blue">🔗</div>
                                 </div>
                                 {/* 趋势折线图 */}
                                 <div className="stat-card-chart" style="margin-top: 12px;">
@@ -109,7 +107,6 @@ function HomeIndex() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="stat-card-icon amber">📡</div>
                                 </div>
                                 {/* 趋势折线图（双线：当前带宽 + 阶梯带宽） */}
                                 <div className="stat-card-chart" style="margin-top: 12px;">
