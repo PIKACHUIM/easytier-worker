@@ -20,7 +20,7 @@ mkdir -p /secrets
 echo -n "$JWT_SECRET" > "$SECRETS_FILE"
 echo "[entrypoint] JWT_SECRET 已写入 $SECRETS_FILE"
 
-# 导出供 wrangler 读取
+# 导出供 Node.js 进程读取
 export JWT_SECRET
 
-exec wrangler dev --port 8787 --host 0.0.0.0 --local
+exec node dist-server/server.js

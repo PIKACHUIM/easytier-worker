@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ESNext"],
+    "types": ["node", "better-sqlite3"],
+    "outDir": "dist-server",
+    "rootDir": "src",
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx"
+  },
+  "include": [
+    "src/server.ts",
+    "src/index.tsx",
+    "src/types.ts",
+    "src/routes/**/*",
+    "src/utils.ts",
+    "src/renderer.tsx",
+    "src/components/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

@@ -13,8 +13,8 @@ services:
       ENABLE_EMAIL_VERIFICATION: ${ENABLE_EMAIL_VERIFICATION:-false}
       SITE_NAME: ${SITE_NAME:-EasyTier 节点管理系统}
     volumes:
-      # 持久化 wrangler 本地状态（D1 本地数据库等）
-      - wrangler_state:/app/.wrangler
+      # 持久化 SQLite 数据库
+      - sqlite_data:/data
       # 共享 secrets 目录（JWT_SECRET 由 app 写入，monitor 读取）
       - secrets_vol:/secrets
     restart: unless-stopped
@@ -46,7 +46,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  # wrangler 本地 D1 数据库持久化
-  wrangler_state:
+  # SQLite 数据库持久化
+  sqlite_data:
   # app 与 monitor 共享的 secrets（JWT_SECRET）
   secrets_vol:
