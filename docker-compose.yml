@@ -1,0 +1,50 @@
+services:
+  # Hono 前后端服务
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: easytier-app
+    ports:
+      - "8787:8787"
+    environment:
+      # JWT 密钥，与 monitor 保持一致
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      # 其他可选配置
+      ENABLE_EMAIL_VERIFICATION: ${ENABLE_EMAIL_VERIFICATION:-false}
+      SITE_NAME: ${SITE_NAME:-EasyTier 节点管理系统}
+    volumes:
+      # 持久化 wrangler 本地状态（D1 数据库等）
+      - wrangler_state:/app/.wrangler
+      # 可选：挂载自定义 wrangler.jsonc 覆盖镜像内配置
+      # - ./wrangler.jsonc:/app/wrangler.jsonc:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8787/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Monitor 监控服务
+  monitor:
+    build:
+      context: ./monitor
+      dockerfile: Dockerfile
+    container_name: easytier-monitor
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # 指向容器内部的 app 服务
+      API_URL: http://app:8787
+      # 使用与 app 相同的 JWT_SECRET 生成 token，或直接传入已签发的 token
+      JWT_TOKEN: ${MONITOR_JWT_TOKEN:-}
+      LOG_LEVEL: ${MONITOR_LOG_LEVEL:-INFO}
+    volumes:
+      # 如需使用 Linux checker 可执行文件，通过 volume 挂载
+      - ./monitor/checker:/monitor/checker:ro
+    restart: unless-stopped
+
+volumes:
+  wrangler_state:

@@ -10,6 +10,7 @@ export const renderer = jsxRenderer(({children}) => {
             <link rel="preconnect" href="https://fonts.googleapis.com"/>
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
             <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono+CJK+SC:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
             <style dangerouslySetInnerHTML={{
                 __html: `
 /* ===== CSS 变量 / Design Tokens ===== */
@@ -2116,7 +2117,6 @@ window.renderNodeRows = function(mode, nodes) {
         </head>
         <body>
         {children}
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <script dangerouslySetInnerHTML={{
             __html: `
 (function() {

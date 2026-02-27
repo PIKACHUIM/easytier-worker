@@ -36,12 +36,97 @@
 
 ## 🚀 快速体验
 
-### 1. 一键部署
+本项目支持两种部署方式：**Docker 本地部署**（推荐自托管）和 **Cloudflare Workers 部署**（推荐生产）。
+
+---
+
+### 🐳 方式一：Docker 部署（自托管）
+
+> 适合本地或私有服务器部署，包含前后端 + 自动监控，开箱即用。
+
+#### 前置准备
+
+将 Linux 版 `checker` 可执行文件放入 `monitor/` 目录：
+
+```
+monitor/
+├── monitor.py
+├── checker          ← Linux amd64/arm64 可执行文件
+└── Dockerfile
+```
+
+#### 启动服务
 
 ```bash
 # 克隆项目
-git clone https://github.com/yourusername/easytierwork.git
-cd easytierwork
+git clone https://github.com/EasyTierTeam/EasyTierWork.git
+cd EasyTierWork
+
+# 编辑 wrangler.jsonc，填入 JWT_SECRET 等配置
+# 然后一键启动
+JWT_SECRET=your-secret-key docker compose up -d --build
+```
+
+或使用 `.env` 文件管理环境变量：
+
+```bash
+# 创建 .env 文件
+cat > .env <<EOF
+JWT_SECRET=your-secret-key
+MONITOR_JWT_TOKEN=your-admin-jwt-token
+MONITOR_LOG_LEVEL=INFO
+EOF
+
+docker compose up -d --build
+```
+
+#### 服务说明
+
+| 服务 | 容器名 | 端口 | 说明 |
+|------|--------|------|------|
+| `app` | `easytier-app` | `8787` | Hono 前后端，wrangler dev 本地模式 |
+| `monitor` | `easytier-monitor` | — | Python 监控，每 60s 检测并上报节点 |
+
+- **app** 健康检查通过后，**monitor** 才会自动启动
+- D1 数据库持久化在 Docker volume `wrangler_state` 中
+- 访问 `http://localhost:8787` 进入管理界面
+
+#### 环境变量参考
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `JWT_SECRET` | `change-me-in-production` | JWT 签名密钥，**必须修改** |
+| `MONITOR_JWT_TOKEN` | 空 | Monitor 使用的管理员 JWT Token |
+| `MONITOR_LOG_LEVEL` | `INFO` | Monitor 日志级别（DEBUG/INFO/WARNING/ERROR）|
+| `ENABLE_EMAIL_VERIFICATION` | `false` | 是否开启邮箱验证 |
+| `SITE_NAME` | `EasyTier 节点管理系统` | 站点名称 |
+
+#### 常用命令
+
+```bash
+# 查看日志
+docker compose logs -f
+
+# 仅查看 monitor 日志
+docker compose logs -f monitor
+
+# 重启服务
+docker compose restart
+
+# 停止并清理
+docker compose down
+```
+
+---
+
+### ☁️ 方式二：Cloudflare Workers 部署
+
+> 适合生产环境，享受全球边缘网络和免费额度。
+
+```bash
+# 克隆项目
+git clone https://github.com/EasyTierTeam/EasyTierWork.git
+cd EasyTierWork
 
 # 安装依赖
 npm install
@@ -56,9 +141,24 @@ npx wrangler d1 create easytier-db
 npm run deploy
 ```
 
-### 2. 初始化系统
+---
 
-访问 `https://your-domain.workers.dev/initialize`，只需三步：
+### 🤖 自动构建镜像（GitHub Actions）
+
+推送到 `main` 分支或打 `v*` tag 时，GitHub Actions 会自动构建并推送镜像到 GHCR：
+
+```
+ghcr.io/<owner>/<repo>/app:latest
+ghcr.io/<owner>/<repo>/monitor:latest
+```
+
+可直接在 `docker-compose.yml` 中将 `build` 替换为 `image` 字段使用预构建镜像。
+
+---
+
+### 初始化系统
+
+部署完成后，访问管理界面的 `/initialize` 页面，只需三步：
 
 1. 🔑 输入 JWT 密钥（来自配置文件）
 2. 📧 设置超级管理员邮箱
@@ -66,7 +166,7 @@ npm run deploy
 
 就这么简单！系统会自动创建所有必需的数据表和配置。
 
-### 3. 开始使用
+### 开始使用
 
 - 👤 **管理员**: 登录后台管理节点和用户
 - 📱 **用户**: 注册账户并添加自己的节点
@@ -204,6 +304,12 @@ easytierwork/
 │   ├── types.ts            # 类型定义
 │   ├── utils.ts            # 工具函数
 │   └── style.css           # 样式文件
+├── 📂 monitor/              # 节点监控服务
+│   ├── monitor.py          # 监控主程序
+│   ├── checker             # EasyTier checker（Linux，需自行提供）
+│   └── Dockerfile          # Monitor 镜像构建文件
+├── 📂 .github/workflows/    # CI/CD
+│   └── docker-publish.yml  # 自动构建并推送 Docker 镜像到 GHCR
 ├── 📂 examples/             # 示例脚本
 │   ├── node_reporter.py    # 节点上报
 │   ├── client_query.py     # 客户端查询
@@ -212,6 +318,9 @@ easytierwork/
 │   ├── README.md          # 完整使用指南
 │   ├── API.md             # API 接口文档
 │   └── CONTRIBUTING.md    # 贡献指南
+├── Dockerfile             # App 镜像构建文件
+├── docker-compose.yml     # Docker Compose 编排
+├── .dockerignore          # Docker 构建忽略规则
 ├── schema.sql             # 数据库结构
 ├── wrangler.jsonc         # Cloudflare 配置
 └── package.json           # 项目配置
@@ -311,10 +420,19 @@ curl https://your-domain.workers.dev/api/stats
 # 安装依赖
 npm install
 
-# 启动开发服务器
+# 启动开发服务器（Cloudflare Workers 本地模式）
 npm run dev
 
 # 访问 http://localhost:8787
+```
+
+### 🐳 Docker 本地开发
+```bash
+# 构建并启动所有服务
+docker compose up --build
+
+# 仅重新构建 app 服务
+docker compose up --build app
 ```
 
 ### 📝 添加新功能

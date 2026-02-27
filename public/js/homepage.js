@@ -85,23 +85,18 @@ async function loadHomeStats() {
     upsertDonut('bandwidthChart', 'bandwidth-chart', currentBandwidth, tierbandwidth, '#f59e0b');
 
     // 更新三个独立的趋势图
-    console.log('历史数据:', data.history);
+    const totalNodesCount = Number(data.total_nodes || 0);
+    const maxConnectionsCount = Number(data.max_connections_total || 0);
     if (data.history) {
-      console.log('在线节点历史:', data.history.online_nodes);
-      console.log('连接数历史:', data.history.connections);
-      console.log('带宽历史:', data.history.bandwidth);
-      console.log('阶梯带宽历史:', data.history.tierband);
-      
-      updateNodesTrendChart(data.history.online_nodes || [], onlineNodesCount);
-      updateConnectionsTrendChart(data.history.connections || [], currentConnections);
+      updateNodesTrendChart(data.history.online_nodes || [], onlineNodesCount, totalNodesCount);
+      updateConnectionsTrendChart(data.history.connections || [], currentConnections, maxConnectionsCount);
       
       // 获取阶梯带宽总量
       const tierbandTotal = Number(data.tier_bandwidth_total || 0);
       updateBandwidthTrendChart(data.history.bandwidth || [], currentBandwidth, data.history.tierband || [], tierbandTotal);
     } else {
-      console.log('没有历史数据，使用当前值创建数据点');
-      updateNodesTrendChart([], onlineNodesCount);
-      updateConnectionsTrendChart([], currentConnections);
+      updateNodesTrendChart([], onlineNodesCount, totalNodesCount);
+      updateConnectionsTrendChart([], currentConnections, maxConnectionsCount);
       updateBandwidthTrendChart([], currentBandwidth, [], 0);
     }
   } catch (error) {
@@ -621,70 +616,211 @@ function createBandwidthTrendChart(canvasId, currentData, tierbandData, historyD
   });
 }
 
+// 创建堆叠折线图（在线节点/连接数）
+function createStackedTrendChart(canvasId, onlineData, offlineData, historyData, colors, labels) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !window.Chart) return null;
+
+  const timeLabels = generateTimeLabelsFromHistory(historyData);
+
+  const makeGradient = (color) => (context) => {
+    const chart = context.chart;
+    const { ctx: c, chartArea } = chart;
+    if (!chartArea) return color + '30';
+    const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    gradient.addColorStop(0, color + '66');
+    gradient.addColorStop(1, color + '0a');
+    return gradient;
+  };
+
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [
+        {
+          label: labels[0],
+          data: onlineData,
+          borderColor: colors[0],
+          backgroundColor: makeGradient(colors[0]),
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 2,
+          pointBackgroundColor: colors[0],
+          pointBorderColor: '#fff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: 5,
+          stack: 'stack'
+        },
+        {
+          label: labels[1],
+          data: offlineData,
+          borderColor: colors[1],
+          backgroundColor: makeGradient(colors[1]),
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 2,
+          pointBackgroundColor: colors[1],
+          pointBorderColor: '#fff',
+          pointBorderWidth: 1.5,
+          pointHoverRadius: 5,
+          stack: 'stack'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      resizeDelay: 100,
+      onResize: function(chart, size) {
+        if (size.width > 0 && size.height > 0) chart.update('none');
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: {
+            color: '#64748b',
+            font: { size: 11, weight: '500' },
+            boxWidth: 10,
+            boxHeight: 10,
+            borderRadius: 3,
+            usePointStyle: true,
+            pointStyle: 'circle'
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          titleColor: '#94a3b8',
+          bodyColor: '#f1f5f9',
+          borderWidth: 1,
+          cornerRadius: 8,
+          padding: 10,
+          displayColors: true,
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            title: function(context) {
+              return '🕐 ' + context[0].label;
+            },
+            label: function(context) {
+              const value = context.parsed.y;
+              return ' ' + context.dataset.label + ': ' + value;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: true,
+          ticks: {
+            color: '#94a3b8',
+            font: { size: 10 },
+            maxTicksLimit: 8,
+            maxRotation: 0,
+            callback: function(value, index) {
+              const totalLabels = this.chart.data.labels.length;
+              const interval = Math.max(1, Math.floor(totalLabels / 8));
+              if (index % interval === 0) return this.getLabelForValue(value);
+              return '';
+            }
+          },
+          grid: { color: 'rgba(148, 163, 184, 0.12)', lineWidth: 1 },
+          border: { dash: [4, 4], color: 'rgba(148, 163, 184, 0.2)' }
+        },
+        y: {
+          display: true,
+          stacked: true,
+          ticks: {
+            color: '#94a3b8',
+            font: { size: 10 },
+            maxTicksLimit: 5,
+            callback: function(value) { return Math.round(value); }
+          },
+          grid: { color: 'rgba(148, 163, 184, 0.12)', lineWidth: 1 },
+          border: { dash: [4, 4], color: 'rgba(148, 163, 184, 0.2)' }
+        }
+      },
+      animation: { duration: 600, easing: 'easeInOutCubic' }
+    }
+  });
+}
+
 // 更新在线节点趋势图
-function updateNodesTrendChart(historyData, currentValue) {
+function updateNodesTrendChart(historyData, currentValue, totalNodes) {
   // 如果没有历史数据但有当前值，创建一个数据点
   if ((!historyData || historyData.length === 0) && typeof currentValue === 'number') {
     historyData = [{ value: currentValue, timestamp: new Date().toISOString() }];
   }
   
-  const data = processHistoryData(historyData);
+  const onlineData = processHistoryData(historyData);
+  // 离线节点 = 总节点 - 在线节点（不低于0）
+  const offlineData = onlineData.map(v => Math.max(0, totalNodes - v));
   let chart = window.nodesTrendChart;
   
-  console.log('节点趋势图数据:', { historyData, data });
-  
   if (!chart) {
-    // 延迟创建图表，确保DOM和布局完全稳定
     setTimeout(() => {
       const container = document.getElementById('nodes-trend-chart');
       if (container) {
         const containerRect = container.getBoundingClientRect();
         if (containerRect.width > 0 && containerRect.height > 0) {
-    chart = createFullTrendChart('nodes-trend-chart', data, '#10b981', '在线节点', historyData);
+          chart = createStackedTrendChart(
+            'nodes-trend-chart',
+            onlineData, offlineData, historyData,
+            ['#10b981', '#94a3b8'],
+            ['在线节点', '离线节点']
+          );
           window.nodesTrendChart = chart;
         } else {
-          console.warn('节点趋势图容器尺寸无效，重试中...');
-          setTimeout(() => updateNodesTrendChart(historyData, currentValue), 100);
+          setTimeout(() => updateNodesTrendChart(historyData, currentValue, totalNodes), 100);
         }
       }
     }, 50);
   } else {
     chart.data.labels = generateTimeLabelsFromHistory(historyData);
-    chart.data.datasets[0].data = data;
+    chart.data.datasets[0].data = onlineData;
+    chart.data.datasets[1].data = offlineData;
     chart.update('none');
   }
 }
 
 // 更新连接数趋势图
-function updateConnectionsTrendChart(historyData, currentValue) {
+function updateConnectionsTrendChart(historyData, currentValue, maxConnections) {
   // 如果没有历史数据但有当前值，创建一个数据点
   if ((!historyData || historyData.length === 0) && typeof currentValue === 'number') {
     historyData = [{ value: currentValue, timestamp: new Date().toISOString() }];
   }
   
-  const data = processHistoryData(historyData);
+  const usedData = processHistoryData(historyData);
+  // 剩余连接 = 最大连接 - 已用连接（不低于0）
+  const remainData = usedData.map(v => Math.max(0, maxConnections - v));
   let chart = window.connectionsTrendChart;
   
-  console.log('连接数趋势图数据:', { historyData, data });
-  
   if (!chart) {
-    // 延迟创建图表，确保DOM和布局完全稳定
     setTimeout(() => {
       const container = document.getElementById('connections-trend-chart');
       if (container) {
         const containerRect = container.getBoundingClientRect();
         if (containerRect.width > 0 && containerRect.height > 0) {
-          chart = createFullTrendChart('connections-trend-chart', data, '#3b82f6', '连接数', historyData);
+          chart = createStackedTrendChart(
+            'connections-trend-chart',
+            usedData, remainData, historyData,
+            ['#3b82f6', '#cbd5e1'],
+            ['已用连接', '剩余连接']
+          );
           window.connectionsTrendChart = chart;
         } else {
-          console.warn('连接数趋势图容器尺寸无效，重试中...');
-          setTimeout(() => updateConnectionsTrendChart(historyData, currentValue), 100);
+          setTimeout(() => updateConnectionsTrendChart(historyData, currentValue, maxConnections), 100);
         }
       }
     }, 100);
   } else {
     chart.data.labels = generateTimeLabelsFromHistory(historyData);
-    chart.data.datasets[0].data = data;
+    chart.data.datasets[0].data = usedData;
+    chart.data.datasets[1].data = remainData;
     chart.update('none');
   }
 }
