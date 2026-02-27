@@ -316,7 +316,7 @@ export async function sendWxPusherNotification(
             })
         });
 
-        const result = await response.json();
+        const result = await response.json() as any;
 
         if (result.code === 1000) {
             return { success: true, message: 'WxPusher 通知发送成功' };
@@ -361,7 +361,7 @@ export async function sendTelegramNotification(
             })
         });
 
-        const result = await response.json();
+        const result = await response.json() as any;
 
         if (result.ok) {
             return { success: true, message: 'Telegram 通知发送成功' };

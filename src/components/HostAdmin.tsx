@@ -3,7 +3,7 @@ import React from 'react';
 import WebHeader from './WebHeader';
 import WebFooter from './WebFooter';
 
-function HostAdmin(): JSX.Element {
+function HostAdmin() {
     return (
         <div className="page-wrapper">
             <WebHeader title="EasyTier 节点管理系统 - 系统设置"/>

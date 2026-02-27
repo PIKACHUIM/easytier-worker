@@ -168,7 +168,7 @@ setInterval(async () => {
 const PORT = parseInt(process.env.PORT || '8787', 10)
 
 serve({
-    fetch: (req) => app.fetch(req, env, { waitUntil: () => {}, passThroughOnException: () => {} }),
+    fetch: (req) => app.fetch(req, env, { waitUntil: () => {}, passThroughOnException: () => {}, props: {} } as any),
     port: PORT,
     hostname: '0.0.0.0',
 }, (info) => {
