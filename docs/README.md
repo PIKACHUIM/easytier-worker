@@ -1,6 +1,20 @@
-# 📚 EasyTier 节点管理系统 - 核心文档
+## 📚 EasyTier 节点管理系统 - 核心文档
 
 > 本文档包含系统使用、管理和开发的核心信息。
+
+---
+
+## 📂 文档索引
+
+| 文档 | 说明 |
+|------|------|
+| [README.md](./README.md) | **本文档** — 系统概览、快速开始、用户/节点管理、常见问题 |
+| [API.md](./API.md) | 完整 API 接口文档（认证、节点、公开接口、系统管理） |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献指南（开发规范、提交流程、代码风格） |
+| [CRON_TASK_README.md](./CRON_TASK_README.md) | 定时任务说明（节点状态检查、统计数据更新、历史记录） |
+| [DATABASE_MIGRATION_README.md](./DATABASE_MIGRATION_README.md) | 数据库迁移指南（通知功能字段迁移） |
+| [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md) | 通知功能说明（微信/邮件/Telegram 下线通知配置） |
+| [ET协议/](./ET协议/) | EasyTier 协议设计文档（节点认证、安全模式、中继管理） |
 
 ---
 
@@ -364,8 +378,11 @@ npx wrangler tail --format=pretty
 ## 📞 获取帮助
 
 ### 文档资源
-- 📖 [完整 README](../README.md)
-- 🔧 [API 文档](API.md)
+- 📖 [API 文档](API.md)
+- 🔔 [通知功能说明](IMPLEMENTATION_SUMMARY.md)
+- ⏱️ [定时任务说明](CRON_TASK_README.md)
+- 🗄️ [数据库迁移指南](DATABASE_MIGRATION_README.md)
+- 🤝 [贡献指南](CONTRIBUTING.md)
 - 💻 [示例代码](../examples/)
 
 ### 社区支持

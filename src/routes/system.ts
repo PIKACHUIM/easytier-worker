@@ -101,6 +101,37 @@ if (jwt_secret !== c.env.JWT_SECRET) {
       `CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status)`,
       `CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay)`,
       `CREATE INDEX IF NOT EXISTS idx_confs_key ON confs(setting_key)`,
+      // 方案C：创建节点 Peer 信息表
+      `CREATE TABLE IF NOT EXISTS node_peers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_id INTEGER NOT NULL,
+        peer_id TEXT NOT NULL,
+        hostname TEXT,
+        ipv4 TEXT,
+        latency_ms REAL,
+        loss_rate REAL,
+        rx_bytes REAL DEFAULT 0,
+        tx_bytes REAL DEFAULT 0,
+        conn_type TEXT,
+        tunnel_type TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+      )`,
+      // 方案C：创建节点路由信息表
+      `CREATE TABLE IF NOT EXISTS node_routes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_id INTEGER NOT NULL,
+        peer_id TEXT NOT NULL,
+        hostname TEXT,
+        ipv4 TEXT,
+        cost REAL DEFAULT 0,
+        next_hop_peer_id TEXT,
+        proxy_cidrs TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_node_peers_node_id ON node_peers(node_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_node_routes_node_id ON node_routes(node_id)`,
       // 插入默认系统设置（作为一个完整的语句）
       `INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         ('resend_api_key', '', 'Resend API 密钥'),
@@ -296,6 +327,37 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
       `CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status)`,
       `CREATE INDEX IF NOT EXISTS idx_nodes_allow_relay ON nodes(allow_relay)`,
       `CREATE INDEX IF NOT EXISTS idx_confs_key ON confs(setting_key)`,
+      // 方案C：创建节点 Peer 信息表
+      `CREATE TABLE IF NOT EXISTS node_peers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_id INTEGER NOT NULL,
+        peer_id TEXT NOT NULL,
+        hostname TEXT,
+        ipv4 TEXT,
+        latency_ms REAL,
+        loss_rate REAL,
+        rx_bytes REAL DEFAULT 0,
+        tx_bytes REAL DEFAULT 0,
+        conn_type TEXT,
+        tunnel_type TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+      )`,
+      // 方案C：创建节点路由信息表
+      `CREATE TABLE IF NOT EXISTS node_routes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_id INTEGER NOT NULL,
+        peer_id TEXT NOT NULL,
+        hostname TEXT,
+        ipv4 TEXT,
+        cost REAL DEFAULT 0,
+        next_hop_peer_id TEXT,
+        proxy_cidrs TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_node_peers_node_id ON node_peers(node_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_node_routes_node_id ON node_routes(node_id)`,
       // 插入默认系统设置（作为一个完整的语句）
       `INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         ('resend_api_key', '', 'Resend API 密钥'),

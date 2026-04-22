@@ -1,9 +1,10 @@
 import {Hono} from 'hono';
-import type {Env, NodeDB, NodeReportRequest, NodeQueryRequest} from '../types';
+import type {Env, NodeDB, NodeReportRequest, NodeQueryRequest, MonitorReportRequest, PeerInfo, RouteInfo} from '../types';
 import {
     updateRecentStatus,
     calculateDailyTrafficPerUser,
-    calculateBandwidthPerUser
+    calculateBandwidthPerUser,
+    verifyJWT
 } from '../utils';
 
 const api = new Hono<{ Bindings: Env }>();
@@ -85,6 +86,13 @@ api.post('/report', async (c) => {
         // 更新节点信息
         // 可选更新阶梯带宽（由API上报）
         const updateTierBandwidth = data.tier_bandwidth !== undefined;
+        // 新增字段处理
+        const networkCount = data.network_count ?? 0;
+        const relayBandwidth = data.relay_bandwidth ? data.relay_bandwidth / 1000000 : 0; // bps -> Mbps
+        const currentNetworkOnly = data.current_network_only ? 1 : 0;
+        // 如果客户端上报了allow_relay，更新节点的allow_relay字段
+        const updateAllowRelay = data.allow_relay !== undefined;
+
         const updateSql = `
             UPDATE nodes
             SET current_bandwidth = ?,
@@ -93,7 +101,10 @@ api.post('/report', async (c) => {
                 connection_count  = ?,
                 status            = ?,
                 recent_status     = ?,
-                last_report_at    = ?${updateTierBandwidth ? ',\n        tier_bandwidth = ?' : ''}
+                last_report_at    = ?,
+                network_count     = ?,
+                relay_bandwidth   = ?,
+                current_network_only = ?${updateTierBandwidth ? ',\n        tier_bandwidth = ?' : ''}${updateAllowRelay ? ',\n        allow_relay = ?' : ''}
             WHERE id = ?
         `;
         const bindings = [
@@ -104,11 +115,56 @@ api.post('/report', async (c) => {
             data.status,
             newRecentStatus,
             now.toISOString(),
+            networkCount,
+            relayBandwidth,
+            currentNetworkOnly,
         ];
         if (updateTierBandwidth) bindings.push(data.tier_bandwidth);
+        if (updateAllowRelay) bindings.push(data.allow_relay ? 1 : 0);
         bindings.push(node.id);
 
         await c.env.DB.prepare(updateSql).bind(...bindings).run();
+
+        // 方案C：处理 peer 信息上报
+        if (data.peers && data.peers.length > 0) {
+            await savePeerInfo(c.env.DB, node.id, data.peers);
+        }
+
+        // 方案C：处理路由信息上报
+        if (data.route_info && data.route_info.length > 0) {
+            await saveRouteInfo(c.env.DB, node.id, data.route_info);
+        }
+
+        // 方案C：更新扩展字段（public_ip, easytier_version, uptime_seconds, latency_ms）
+        const extUpdates: string[] = [];
+        const extValues: any[] = [];
+        if (data.public_ip !== undefined) {
+            extUpdates.push('public_ip = ?');
+            extValues.push(data.public_ip);
+        }
+        if (data.easytier_version !== undefined) {
+            extUpdates.push('easytier_version = ?');
+            extValues.push(data.easytier_version);
+        }
+        if (data.uptime_seconds !== undefined) {
+            extUpdates.push('uptime_seconds = ?');
+            extValues.push(data.uptime_seconds);
+        }
+        if (data.latency_ms !== undefined) {
+            extUpdates.push('monitor_latency_ms = ?');
+            extValues.push(data.latency_ms);
+        }
+        if (extUpdates.length > 0) {
+            extValues.push(node.id);
+            try {
+                await c.env.DB.prepare(
+                    `UPDATE nodes SET ${extUpdates.join(', ')} WHERE id = ?`
+                ).bind(...extValues).run();
+            } catch (e) {
+                // 字段可能不存在（未迁移），忽略错误
+                console.warn('更新扩展字段失败（可能未迁移）:', e);
+            }
+        }
 
         return c.json({
             message: '上报成功',
@@ -445,6 +501,191 @@ async function updateStatsHistory(db: any, onlineNodes: number, connections: num
     } catch (error) {
         console.error('更新统计历史数据错误:', error);
         return false;
+    }
+}
+
+// ============================================================
+// 方案A：监控服务批量上报端点（由 health-check-cli batch 模式调用）
+// ============================================================
+api.post('/monitor/report', async (c) => {
+    try {
+        // 验证 JWT 令牌（需要管理员权限）
+        const authHeader = c.req.header('Authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return c.json({error: '未授权'}, 401);
+        }
+        const token = authHeader.substring(7);
+        const payload = await verifyJWT(token, c.env.JWT_SECRET);
+        if (!payload || !payload.is_admin) {
+            return c.json({error: '需要管理员权限'}, 403);
+        }
+
+        const data: MonitorReportRequest = await c.req.json();
+        if (!data.results || !Array.isArray(data.results)) {
+            return c.json({error: '缺少 results 字段'}, 400);
+        }
+
+        const now = new Date();
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const result of data.results) {
+            try {
+                // 通过节点名称和邮箱查找节点
+                const node = await c.env.DB.prepare(
+                    'SELECT * FROM nodes WHERE node_name = ? AND user_email = ?'
+                ).bind(result.node_name, result.email).first();
+
+                if (!node) {
+                    console.warn(`[监控上报] 节点不存在: ${result.node_name} (${result.email})`);
+                    failCount++;
+                    continue;
+                }
+
+                // 验证 token
+                if (node.report_token !== result.token) {
+                    console.warn(`[监控上报] Token验证失败: ${result.node_name}`);
+                    failCount++;
+                    continue;
+                }
+
+                // 更新节点状态
+                const status = result.is_online ? 'online' : 'offline';
+                const load = result.is_online ? 2 : 1;
+                const newRecentStatus = updateRecentStatus(node.recent_status, load);
+
+                await c.env.DB.prepare(`
+                    UPDATE nodes
+                    SET status         = ?,
+                        recent_status  = ?,
+                        last_report_at = ?,
+                        connection_count = ?
+                    WHERE id = ?
+                `).bind(
+                    status,
+                    newRecentStatus,
+                    now.toISOString(),
+                    result.connection_count || 0,
+                    node.id
+                ).run();
+
+                // 如果有延迟信息，尝试更新
+                if (result.latency_ms !== undefined) {
+                    try {
+                        await c.env.DB.prepare(
+                            'UPDATE nodes SET monitor_latency_ms = ? WHERE id = ?'
+                        ).bind(result.latency_ms, node.id).run();
+                    } catch (e) {
+                        // 字段可能不存在，忽略
+                    }
+                }
+
+                successCount++;
+            } catch (e) {
+                console.error(`[监控上报] 处理节点 ${result.node_name} 失败:`, e);
+                failCount++;
+            }
+        }
+
+        console.log(`[监控上报] 处理完成: 成功 ${successCount}, 失败 ${failCount}`);
+
+        return c.json({
+            message: '监控上报处理完成',
+            success_count: successCount,
+            fail_count: failCount
+        });
+    } catch (error) {
+        console.error('[监控上报] 错误:', error);
+        return c.json({error: '监控上报失败'}, 500);
+    }
+});
+
+// ============================================================
+// 方案C：获取节点的 Peer 信息
+// ============================================================
+api.get('/nodes/:id/peers', async (c) => {
+    try {
+        const nodeId = c.req.param('id');
+        const {results} = await c.env.DB.prepare(
+            'SELECT * FROM node_peers WHERE node_id = ? ORDER BY updated_at DESC'
+        ).bind(nodeId).all();
+
+        return c.json({peers: results || []});
+    } catch (error) {
+        console.error('获取节点Peer信息错误:', error);
+        return c.json({peers: []});
+    }
+});
+
+// 方案C：获取节点的路由信息
+api.get('/nodes/:id/routes', async (c) => {
+    try {
+        const nodeId = c.req.param('id');
+        const {results} = await c.env.DB.prepare(
+            'SELECT * FROM node_routes WHERE node_id = ? ORDER BY updated_at DESC'
+        ).bind(nodeId).all();
+
+        return c.json({routes: results || []});
+    } catch (error) {
+        console.error('获取节点路由信息错误:', error);
+        return c.json({routes: []});
+    }
+});
+
+// ============================================================
+// 方案C：内部辅助函数 - 保存 Peer 信息
+// ============================================================
+async function savePeerInfo(db: any, nodeId: number, peers: PeerInfo[]) {
+    try {
+        // 先删除该节点的旧 peer 记录
+        await db.prepare('DELETE FROM node_peers WHERE node_id = ?').bind(nodeId).run();
+
+        // 插入新的 peer 记录
+        for (const peer of peers) {
+            await db.prepare(`
+                INSERT INTO node_peers (node_id, peer_id, hostname, ipv4, latency_ms, loss_rate, rx_bytes, tx_bytes, conn_type, tunnel_type, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `).bind(
+                nodeId,
+                peer.peer_id,
+                peer.hostname || null,
+                peer.ipv4 || null,
+                peer.latency_ms ?? null,
+                peer.loss_rate ?? null,
+                peer.rx_bytes ?? 0,
+                peer.tx_bytes ?? 0,
+                peer.conn_type || null,
+                peer.tunnel_type || null
+            ).run();
+        }
+    } catch (error) {
+        console.error('保存Peer信息失败:', error);
+    }
+}
+
+// 方案C：内部辅助函数 - 保存路由信息
+async function saveRouteInfo(db: any, nodeId: number, routes: RouteInfo[]) {
+    try {
+        // 先删除该节点的旧路由记录
+        await db.prepare('DELETE FROM node_routes WHERE node_id = ?').bind(nodeId).run();
+
+        // 插入新的路由记录
+        for (const route of routes) {
+            await db.prepare(`
+                INSERT INTO node_routes (node_id, peer_id, hostname, ipv4, cost, next_hop_peer_id, proxy_cidrs, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `).bind(
+                nodeId,
+                route.peer_id,
+                route.hostname || null,
+                route.ipv4 || null,
+                route.cost ?? 0,
+                route.next_hop_peer_id || null,
+                route.proxy_cidrs ? JSON.stringify(route.proxy_cidrs) : null
+            ).run();
+        }
+    } catch (error) {
+        console.error('保存路由信息失败:', error);
     }
 }
 
