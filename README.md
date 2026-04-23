@@ -5,6 +5,9 @@
 [![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
 [![Cloudflare Workers](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange.svg)](https://workers.cloudflare.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github-actions&logoColor=white)](https://github.com/features/actions)
 
 > 基于 Cloudflare Workers 和 D1 数据库构建的现代化节点管理系统，提供完整的用户权限管理、智能负载均衡和实时监控功能。
 
@@ -42,17 +45,18 @@
 
 ### 🐳 方式一：Docker 部署（自托管）
 
-> 适合本地或私有服务器部署，包含前后端 + 自动监控，开箱即用。
+> 适合本地或私有服务器部署，包含前后端 + 健康检测，开箱即用。
 
 #### 前置准备
 
-将 Linux 版 `checker` 可执行文件放入 `monitor/` 目录：
+将 Linux 版 `health-check` 可执行文件放入 `health/` 目录，或从 [Releases](../../releases) 页面下载预编译版本：
 
 ```
-monitor/
-├── monitor.py
-├── checker          ← Linux amd64/arm64 可执行文件
-└── Dockerfile
+health/
+├── src/
+├── Cargo.toml
+├── Dockerfile
+└── ...
 ```
 
 #### 启动服务
@@ -85,9 +89,9 @@ docker compose up -d --build
 | 服务 | 容器名 | 端口 | 说明 |
 |------|--------|------|------|
 | `app` | `easytier-app` | `8787` | Hono 前后端，wrangler dev 本地模式 |
-| `monitor` | `easytier-monitor` | — | Python 监控，每 60s 检测并上报节点 |
+| `health-check` | `easytier-health` | — | Rust 健康检测 CLI，可配合监控脚本使用 |
 
-- **app** 健康检查通过后，**monitor** 才会自动启动
+- **app** 健康检查通过后，**health-check** 才会自动启动
 - D1 数据库持久化在 Docker volume `wrangler_state` 中
 - 访问 `http://localhost:8787` 进入管理界面
 
@@ -150,9 +154,25 @@ npm run deploy
 ```
 ghcr.io/<owner>/<repo>/app:latest
 ghcr.io/<owner>/<repo>/monitor:latest
+ghcr.io/<owner>/<repo>/health-check:latest
 ```
 
 可直接在 `docker-compose.yml` 中将 `build` 替换为 `image` 字段使用预构建镜像。
+
+#### Health Check CLI 预构建二进制
+
+每次推送到 `main` 分支，GitHub Actions 还会自动编译 Health Check CLI 的多平台二进制文件，并发布到 **Beta Release**：
+
+| 文件名 | 平台 | 架构 |
+|--------|------|------|
+| `health-check-linux-x86_64` | Linux | x86_64 |
+| `health-check-linux-aarch64` | Linux | ARM64 |
+| `health-check-linux-armv7` | Linux | ARMv7 |
+| `health-check-windows-x86_64.exe` | Windows | x86_64 |
+| `health-check-macos-x86_64` | macOS | x86_64 |
+| `health-check-macos-aarch64` | macOS | Apple Silicon |
+
+> 在 [Releases](../../releases) 页面找到最新的 `beta-health-*` 预发布版本下载。
 
 ---
 
@@ -267,8 +287,11 @@ graph TB
     H[终端用户] --> I[查询 API]
     I --> C
     
-    C --> J[JWT 认证]
-    C --> K[权限中间件]
+    J[Health Check CLI] -->|直接连接| K[EasyTier 节点]
+    J -->|上报状态| G
+    
+    C --> L[JWT 认证]
+    C --> M[权限中间件]
 ```
 
 ### 技术栈
@@ -282,6 +305,7 @@ graph TB
 | **认证** | JWT | 无状态认证，支持分布式 |
 | **加密** | bcrypt | 密码哈希，防彩虹表攻击 |
 | **邮件** | Resend | 现代化邮件服务 |
+| **Health Check** | Rust | 静态二进制，跨平台健康检测 |
 
 ---
 
@@ -304,12 +328,24 @@ easytierwork/
 │   ├── types.ts            # 类型定义
 │   ├── utils.ts            # 工具函数
 │   └── style.css           # 样式文件
-├── 📂 monitor/              # 节点监控服务
-│   ├── monitor.py          # 监控主程序
-│   ├── checker             # EasyTier checker（Linux，需自行提供）
-│   └── Dockerfile          # Monitor 镜像构建文件
-├── 📂 .github/workflows/    # CI/CD
-│   └── docker-publish.yml  # 自动构建并推送 Docker 镜像到 GHCR
+├── 📂 health/               # Health Check CLI（Rust）
+│   ├── 📂 src/             # Rust 源码
+│   │   └── main.rs        # 主程序
+│   ├── 📂 examples/        # 使用示例
+│   │   ├── check_nodes.py # Python 批量检测示例
+│   │   └── check_nodes.bat# Windows 批量检测示例
+│   ├── Cargo.toml         # Rust 项目配置
+│   ├── Dockerfile         # Health Check 镜像构建文件
+│   ├── build.sh           # Linux/macOS 构建脚本
+│   └── build.bat          # Windows 构建脚本
+├── 📂 docker/              # Docker 相关文件
+│   ├── Dockerfile         # App 镜像构建文件
+│   ├── docker-compose.yml # Docker Compose 编排
+│   ├── .dockerignore      # Docker 构建忽略规则
+│   └── entrypoint.sh      # 容器启动脚本
+├── 📂 .github/workflows/   # CI/CD
+│   ├── docker-publish.yml # 自动构建并推送 App/Monitor 镜像到 GHCR
+│   └── health-release.yml # 构建 Health Check 二进制 + Docker 镜像，发布 Beta Release
 ├── 📂 examples/             # 示例脚本
 │   ├── node_reporter.py    # 节点上报
 │   ├── client_query.py     # 客户端查询
@@ -325,6 +361,64 @@ easytierwork/
 ├── wrangler.jsonc         # Cloudflare 配置
 └── package.json           # 项目配置
 ```
+
+---
+
+## 🏥 Health Check CLI
+
+`health/` 目录包含一个独立的 Rust 命令行工具，用于检查 EasyTier 节点的健康状态，可配合监控系统或脚本使用。
+
+### 功能特性
+
+- 🦀 **纯 Rust 实现**，单一静态二进制，无运行时依赖
+- 🌐 **多协议支持**：TCP / UDP / WS / WSS / WG
+- 📊 **结构化输出**：返回在线状态、连接数等指标
+- ⏱️ **可配置超时**，适合批量脚本调用
+- 🐳 **Docker 支持**，可容器化部署
+
+### 快速使用
+
+**下载预编译二进制**（推荐）：
+
+前往 [Releases](../../releases) 页面下载对应平台的 `beta-health-*` 版本。
+
+**从源码编译**：
+
+```bash
+cd health
+cargo build --release
+# 产物：health/target/release/health-check
+```
+
+**基本用法**：
+
+```bash
+# 检查节点健康状态
+health-check -s tcp://192.168.1.1:11010 -n MyNetwork -p MyPassword
+
+# 输出格式：<是否在线> <连接数> <带宽> <阶梯带宽> <已用流量>
+# 示例输出：1 100 0 0 0
+```
+
+**Docker 使用**：
+
+```bash
+docker pull ghcr.io/<owner>/<repo>/health-check:latest
+docker run --rm ghcr.io/<owner>/<repo>/health-check \
+  -s tcp://192.168.1.1:11010 -n MyNetwork -p MyPassword
+```
+
+**参数说明**：
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `-s, --server` | 服务器地址（协议://IP:端口） | `tcp://192.168.1.1:11010` |
+| `-n, --network-name` | 网络名称 | `MyNetwork` |
+| `-p, --network-secret` | 网络密码 | `MyPassword` |
+| `-t, --timeout` | 超时时间（秒，默认 30） | `60` |
+| `-v, --verbose` | 启用详细日志 | — |
+
+> 详细文档见 [health/README.md](health/README.md)
 
 ---
 
@@ -456,9 +550,10 @@ python client_query.py
 
 | 文档 | 说明 |
 |------|------|
-| [📖 docs/README.md](./docs/README.md) | 完整使用指南 - 包含快速开始、用户管理、API使用等 ⭐ |
-| [🔧 docs/API.md](./docs/API.md) | 完整的 API 接口文档 |
-| [🤝 docs/CONTRIBUTING.md](./docs/CONTRIBUTING.md) | 贡献指南 - 欢迎提交代码和建议 |
+| [📖 docs/README.md](design/README.md) | 完整使用指南 - 包含快速开始、用户管理、API使用等 ⭐ |
+| [🔧 docs/API.md](design/API.md) | 完整的 API 接口文档 |
+| [🤝 docs/CONTRIBUTING.md](design/CONTRIBUTING.md) | 贡献指南 - 欢迎提交代码和建议 |
+| [🏥 health/README.md](health/README.md) | Health Check CLI 详细文档 |
 
 ---
 

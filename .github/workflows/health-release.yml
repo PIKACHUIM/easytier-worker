@@ -1,0 +1,282 @@
+name: Build & Release Health Check
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  HEALTH_IMAGE: ghcr.io/${{ github.repository }}/health-check
+
+jobs:
+  # ── 构建多平台二进制文件 ──────────────────────────────────────
+  build-binaries:
+    name: Build Binary (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            artifact_name: health-check
+            asset_name: health-check-linux-x86_64
+            cross: false
+
+          # Linux aarch64
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            artifact_name: health-check
+            asset_name: health-check-linux-aarch64
+            cross: true
+
+          # Linux armv7
+          - target: armv7-unknown-linux-musleabihf
+            os: ubuntu-latest
+            artifact_name: health-check
+            asset_name: health-check-linux-armv7
+            cross: true
+
+          # Windows x86_64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact_name: health-check.exe
+            asset_name: health-check-windows-x86_64.exe
+            cross: false
+
+          # macOS x86_64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact_name: health-check
+            asset_name: health-check-macos-x86_64
+            cross: false
+
+          # macOS aarch64 (Apple Silicon)
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact_name: health-check
+            asset_name: health-check-macos-aarch64
+            cross: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Linux: 安装 musl 工具链
+      - name: Install musl tools (Linux)
+        if: runner.os == 'Linux' && !matrix.cross
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      # 安装 cross（用于交叉编译）
+      - name: Install cross
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      # 安装 Rust 工具链
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # 缓存 Cargo 依赖
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            health/target
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('health/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-
+
+      # 使用 cross 交叉编译
+      - name: Build with cross (cross-compile)
+        if: matrix.cross
+        working-directory: health
+        run: cross build --release --target ${{ matrix.target }}
+
+      # 原生编译
+      - name: Build native
+        if: "!matrix.cross"
+        working-directory: health
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # 上传构建产物
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: health/target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          retention-days: 1
+
+  # ── 发布到 Beta Release ──────────────────────────────────────
+  release:
+    name: Publish Beta Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 下载所有构建产物
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      # 整理产物文件
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts/ -type f | while read f; do
+            name=$(basename "$(dirname "$f")")
+            cp "$f" "release-assets/$name"
+          done
+          ls -la release-assets/
+
+      # 生成版本号（使用 commit SHA 短码）
+      - name: Generate version info
+        id: version
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "release_name=Beta Health Check ${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "tag_name=beta-health-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      # 删除旧的 beta-health 预发布版本（保留最新）
+      - name: Delete old beta health releases
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            for (const release of releases.data) {
+              if (release.prerelease && release.tag_name.startsWith('beta-health-')) {
+                console.log(`Deleting old release: ${release.tag_name}`);
+                await github.rest.repos.deleteRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: release.id
+                });
+                try {
+                  await github.rest.git.deleteRef({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    ref: `tags/${release.tag_name}`
+                  });
+                } catch (e) {
+                  console.log(`Tag deletion skipped: ${e.message}`);
+                }
+              }
+            }
+
+      # 创建 Beta Release 并上传产物
+      - name: Create Beta Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.version.outputs.release_name }}
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          prerelease: true
+          draft: false
+          body: |
+            ## 🏥 Health Check CLI - Beta Build
+
+            **Commit**: `${{ github.sha }}`
+            **Branch**: `${{ github.ref_name }}`
+            **Build Time**: ${{ github.event.head_commit.timestamp }}
+
+            ### 📦 下载说明
+
+            | 文件名 | 平台 | 架构 |
+            |--------|------|------|
+            | `health-check-linux-x86_64` | Linux | x86_64 |
+            | `health-check-linux-aarch64` | Linux | ARM64 |
+            | `health-check-linux-armv7` | Linux | ARMv7 |
+            | `health-check-windows-x86_64.exe` | Windows | x86_64 |
+            | `health-check-macos-x86_64` | macOS | x86_64 |
+            | `health-check-macos-aarch64` | macOS | Apple Silicon |
+
+            ### 🐳 Docker 镜像
+
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}/health-check:latest
+            ```
+
+            ### 🚀 使用方法
+
+            ```bash
+            health-check -s tcp://192.168.1.1:11010 -n MyNetwork -p MyPassword
+            ```
+
+            > ⚠️ 这是预发布版本，可能不稳定。
+          files: release-assets/*
+
+  # ── 构建并推送 Docker 镜像 ──────────────────────────────────
+  build-docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 设置 QEMU（支持多平台构建）
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # 设置 Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 登录 GHCR
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 提取镜像元数据
+      - name: Extract metadata for health-check image
+        id: health-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.HEALTH_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=beta,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # 构建并推送 health-check 镜像
+      - name: Build and push health-check image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./health
+          file: ./health/Dockerfile
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          tags: ${{ steps.health-meta.outputs.tags }}
+          labels: ${{ steps.health-meta.outputs.labels }}
+          cache-from: type=gha,scope=health-check
+          cache-to: type=gha,mode=max,scope=health-check

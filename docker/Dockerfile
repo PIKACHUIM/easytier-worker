@@ -37,7 +37,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-server ./dist-server
 
 # 复制 schema（数据库初始化）
-COPY ../sql/schema.sql ./
+COPY ../schema/schema.sql ./
 
 # 复制启动脚本
 COPY entrypoint.sh ./
