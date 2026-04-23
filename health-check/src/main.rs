@@ -92,6 +92,7 @@ enum Commands {
 
 /// 从 API 获取的节点信息
 #[derive(Debug, Deserialize, Clone)]
+#[allow(dead_code)]
 struct ApiNode {
     id: i64,
     node_name: String,
@@ -135,7 +136,7 @@ struct MonitorReportRequest {
     results: Vec<MonitorNodeResult>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct MonitorNodeResult {
     node_name: String,
     email: String,
