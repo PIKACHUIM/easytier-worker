@@ -7,13 +7,12 @@
     "dev-cf:test": "",
     "dev-eo": "",
     "build": "vite build",
-    "build:eo": "echo 'EdgeOne Node Functions - no build needed'",
     "build:server": "tsc -p tsconfig.server.json",
     "preview": "npm run build && wrangler dev",
     "deploy-cf": "npm run build && wrangler deploy",
     "deploy-cf:test": "npm run build && wrangler deploy -c .\\wrangler.test.jsonc",
     "deploy-py": "npx edgeone-pages-mcp-fullstack --directory ./py-functions",
-    "deploy-eo": "npx edgeone-pages-mcp-fullstack --directory .",
+    "deploy-eo": "npx edgeone-pages-mcp-fullstack --directory ./py-functions",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
