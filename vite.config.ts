@@ -6,7 +6,7 @@ export default defineConfig({
     plugins: [
         cloudflare({
             persistState: true,
-            configPath: './wrangler.test.jsonc',
+            configPath: './wrangler.jsonc',
         }),
         ssrPlugin()
     ],

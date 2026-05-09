@@ -1,0 +1,13 @@
+{
+  "node-functions": {
+    "included_files": [
+      "src/**",
+      "public/**"
+    ],
+    "external_node_modules": [
+      "hono",
+      "bcryptjs",
+      "resend"
+    ]
+  }
+}

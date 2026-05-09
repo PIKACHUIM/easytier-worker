@@ -2,7 +2,6 @@ import {Hono} from 'hono'
 import {cors} from 'hono/cors'
 import {renderer} from './renderer'
 import type {Env} from './types'
-import {connect} from 'cloudflare:sockets'
 import {isEdgeOneCheckEnabled, checkNodeViaEdgeOne, batchCheckViaEdgeOne, verifyEdgeOneApiKey, type EdgeOneCheckResult} from './edgeone'
 import auth from './routes/auth'
 import nodes from './routes/nodes'
@@ -234,6 +233,8 @@ async function getStatsHistory(db: any) {
 // TCP 连接检测：尝试建立 TCP 连接来判断节点是否在线
 async function checkTcpConnection(ip: string, port: number, timeoutMs: number = 5000): Promise<boolean> {
     try {
+        // 动态导入 cloudflare:sockets（仅在 Cloudflare Workers 环境可用，EdgeOne 环境不可用）
+        const {connect} = await import('cloudflare:sockets');
         const socket = connect({hostname: ip, port: port});
 
         // 设置超时

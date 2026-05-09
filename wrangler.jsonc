@@ -20,7 +20,8 @@
     // 配置后，健康检测将优先调用 EdgeOne 云函数接口检测节点状态
     // "EDGEONE_CHECK_API": "https://your-app.edgeone.app/api/edgeone",
     // "EDGEONE_CHECK_TIMEOUT": "30",
-    // "EDGEONE_CHECK_API_KEY": "your-api-key-for-edgeone"
+    // "EDGEONE_CHECK_API_KEY": "your-api-key-for-edgeone"}
+    "ENABLE_EMAIL_VERIFICATION": true
   },
 
   // D1 数据库绑定
