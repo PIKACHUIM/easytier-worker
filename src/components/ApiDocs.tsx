@@ -465,6 +465,159 @@ function ApiDocs() {
                 </div>
 
                 <div className="api-section">
+                    <h3>EdgeOne 云函数检测 API</h3>
+                    <p className="api-note">以下 API 用于通过 EdgeOne 云函数检测节点在线状态，支持两种部署模式：独立云函数部署或一体化部署（Hono 内置路由）。如配置了 API Key，需在请求头中携带 <code>X-API-Key</code> 进行鉴权。</p>
+
+                    <div className="api-endpoint">
+                        <div className="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span className="method get">GET</span>
+                            <span className="path">/api/edgeone/check</span>
+                            <span className="description">单节点在线检测</span>
+                            <span className="toggle-icon">▼</span>
+                        </div>
+                        <div className="endpoint-details">
+                            <div className="request">
+                                <h4>查询参数</h4>
+                                <ul>
+                                    <li><code>server</code>（必填）：节点连接地址，格式如 <code>tcp://IP:PORT</code>、<code>ws://IP:PORT</code>、<code>wss://IP:PORT</code></li>
+                                    <li><code>network_name</code>（必填）：EasyTier 网络名称</li>
+                                    <li><code>network_secret</code>（必填）：EasyTier 网络密码</li>
+                                </ul>
+                                <h4>请求头</h4>
+                                <ul>
+                                    <li><code>X-API-Key</code>（可选）：API 鉴权密钥（如已配置）</li>
+                                </ul>
+                            </div>
+                            <div className="response">
+                                <h4>在线响应</h4>
+                                <pre><code>{`{
+  "is_online": true,
+  "connection_count": 5,
+  "latency_ms": 120,
+  "check_time": "2026-05-08T09:00:00.000Z"
+}`}</code></pre>
+                                <h4>离线响应</h4>
+                                <pre><code>{`{
+  "is_online": false,
+  "connection_count": 0,
+  "latency_ms": -1,
+  "check_time": "2026-05-08T09:00:00.000Z",
+  "error": "连接超时"
+}`}</code></pre>
+                            </div>
+                            <div className="status-codes">
+                                <h4>状态码</h4>
+                                <ul>
+                                    <li><code>200</code>: 检测完成（无论节点在线或离线）</li>
+                                    <li><code>400</code>: 缺少必填参数</li>
+                                    <li><code>401</code>: API Key 验证失败</li>
+                                    <li><code>500</code>: 服务器内部错误</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="api-endpoint">
+                        <div className="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span className="method post">POST</span>
+                            <span className="path">/api/edgeone/batch-check</span>
+                            <span className="description">批量节点在线检测</span>
+                            <span className="toggle-icon">▼</span>
+                        </div>
+                        <div className="endpoint-details">
+                            <div className="request">
+                                <h4>请求头</h4>
+                                <ul>
+                                    <li><code>X-API-Key</code>（可选）：API 鉴权密钥（如已配置）</li>
+                                </ul>
+                                <h4>请求体</h4>
+                                <pre><code>{`{
+  "nodes": [
+    {
+      "server": "tcp://1.2.3.4:11010",
+      "network_name": "MyNetwork",
+      "network_secret": "MyPassword"
+    },
+    {
+      "server": "ws://5.6.7.8:11011",
+      "network_name": "TestNetwork",
+      "network_secret": "TestPassword"
+    }
+  ]
+}`}</code></pre>
+                            </div>
+                            <div className="response">
+                                <h4>响应</h4>
+                                <pre><code>{`{
+  "results": [
+    {
+      "is_online": true,
+      "connection_count": 5,
+      "latency_ms": 120,
+      "check_time": "2026-05-08T09:00:00.000Z"
+    },
+    {
+      "is_online": false,
+      "connection_count": 0,
+      "latency_ms": -1,
+      "check_time": "2026-05-08T09:00:00.000Z",
+      "error": "连接超时"
+    }
+  ]
+}`}</code></pre>
+                            </div>
+                            <div className="status-codes">
+                                <h4>状态码</h4>
+                                <ul>
+                                    <li><code>200</code>: 批量检测完成</li>
+                                    <li><code>400</code>: 请求参数错误（节点列表为空/超过20个/缺少必填字段）</li>
+                                    <li><code>401</code>: API Key 验证失败</li>
+                                    <li><code>500</code>: 服务器内部错误</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="api-endpoint">
+                        <div className="endpoint-header" onclick="toggleEndpoint(this)">
+                            <span className="method get">GET</span>
+                            <span className="path">/api/edgeone/health</span>
+                            <span className="description">云函数健康状态</span>
+                            <span className="toggle-icon">▼</span>
+                        </div>
+                        <div className="endpoint-details">
+                            <div className="request">
+                                <h4>请求头</h4>
+                                <ul>
+                                    <li><code>X-API-Key</code>（可选）：API 鉴权密钥（如已配置）</li>
+                                </ul>
+                            </div>
+                            <div className="response">
+                                <h4>响应</h4>
+                                <pre><code>{`{
+  "status": "ok",
+  "service": "edgeone-check",
+  "mode": "remote",
+  "timestamp": "2026-05-08T09:00:00.000Z"
+}`}</code></pre>
+                                <p><strong>mode 字段说明：</strong></p>
+                                <ul>
+                                    <li><code>remote</code>：配置了 EDGEONE_CHECK_API，使用远程 EdgeOne 云函数检测</li>
+                                    <li><code>local</code>：未配置远程 API，使用本地 TCP 直连检测</li>
+                                </ul>
+                            </div>
+                            <div className="status-codes">
+                                <h4>状态码</h4>
+                                <ul>
+                                    <li><code>200</code>: 服务正常</li>
+                                    <li><code>401</code>: API Key 验证失败</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="api-section">
                     <h3>系统管理 API</h3>
                     <p className="api-note">需要管理员权限</p>
 

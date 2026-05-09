@@ -5,6 +5,7 @@
   "name": "easytier-manager",
   "main": "src/index.tsx",
   "compatibility_date": "2024-01-01",
+  "compatibility_flags": ["nodejs_compat"],
 
   // 环境变量配置
   "vars": {
@@ -13,7 +14,13 @@
 
     // 网站基本信息
     "SITE_NAME": "EasyTier 节点管理系统",
-    "SITE_URL": "https://your-domain.workers.dev"
+    "SITE_URL": "https://your-domain.workers.dev",
+
+    // EdgeOne 云函数检测配置（可选）
+    // 配置后，健康检测将优先调用 EdgeOne 云函数接口检测节点状态
+    // "EDGEONE_CHECK_API": "https://your-app.edgeone.app/api/edgeone",
+    // "EDGEONE_CHECK_TIMEOUT": "30",
+    // "EDGEONE_CHECK_API_KEY": "your-api-key-for-edgeone"
   },
 
   // D1 数据库绑定

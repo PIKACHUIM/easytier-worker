@@ -116,8 +116,10 @@ nodes.post('/', authMiddleware, async (c) => {
             INSERT INTO nodes (user_email, node_name, region_type, region_detail, connections,
                                tier_bandwidth, max_bandwidth, max_traffic, reset_cycle, reset_date,
                                max_connections, tags, valid_until, notes, allow_relay, is_enabled, report_token,
-                               network_name, network_token, offline_notify)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               network_name, network_token, offline_notify, always_online,
+                               current_network_limit_mbps, other_network_limit_mbps, enable_traffic_stats,
+                               traffic_reset_by_days, traffic_reset_day, report_urls, report_secret, report_interval_minutes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
             user.email,
             data.node_name,
@@ -138,7 +140,16 @@ nodes.post('/', authMiddleware, async (c) => {
             reportToken,
             data.network_name || '',
             data.network_token || '',
-            0 // 默认不通知
+            0, // 默认不通知
+            (data.always_online ?? 0), // 默认不总是在线
+            (data as any).current_network_limit_mbps || 0,
+            (data as any).other_network_limit_mbps || 0,
+            (data as any).enable_traffic_stats ?? 1,
+            (data as any).traffic_reset_by_days || 0,
+            (data as any).traffic_reset_day || 0,
+            (data as any).report_urls || '',
+            (data as any).report_secret || '',
+            (data as any).report_interval_minutes || 5
         ).run();
 
         return c.json({
@@ -275,6 +286,44 @@ nodes.put('/:id', authMiddleware, async (c) => {
         if (data.offline_notify !== undefined) {
             updates.push('offline_notify = ?');
             values.push(data.offline_notify);
+        }
+        if (data.always_online !== undefined) {
+            updates.push('always_online = ?');
+            values.push(data.always_online);
+        }
+        // 流量控制配置
+        if ((data as any).current_network_limit_mbps !== undefined) {
+            updates.push('current_network_limit_mbps = ?');
+            values.push((data as any).current_network_limit_mbps);
+        }
+        if ((data as any).other_network_limit_mbps !== undefined) {
+            updates.push('other_network_limit_mbps = ?');
+            values.push((data as any).other_network_limit_mbps);
+        }
+        if ((data as any).enable_traffic_stats !== undefined) {
+            updates.push('enable_traffic_stats = ?');
+            values.push((data as any).enable_traffic_stats);
+        }
+        if ((data as any).traffic_reset_by_days !== undefined) {
+            updates.push('traffic_reset_by_days = ?');
+            values.push((data as any).traffic_reset_by_days);
+        }
+        if ((data as any).traffic_reset_day !== undefined) {
+            updates.push('traffic_reset_day = ?');
+            values.push((data as any).traffic_reset_day);
+        }
+        // 上报配置
+        if ((data as any).report_urls !== undefined) {
+            updates.push('report_urls = ?');
+            values.push((data as any).report_urls);
+        }
+        if ((data as any).report_secret !== undefined) {
+            updates.push('report_secret = ?');
+            values.push((data as any).report_secret);
+        }
+        if ((data as any).report_interval_minutes !== undefined) {
+            updates.push('report_interval_minutes = ?');
+            values.push((data as any).report_interval_minutes);
         }
         if (data.correction_traffic !== undefined && user.is_admin) {
             // 只有管理员可以修改修正流量

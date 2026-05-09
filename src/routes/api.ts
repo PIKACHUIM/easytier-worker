@@ -6,6 +6,7 @@ import {
     calculateBandwidthPerUser,
     verifyJWT
 } from '../utils';
+import {isEdgeOneCheckEnabled, checkNodeViaEdgeOne, batchCheckViaEdgeOne, verifyEdgeOneApiKey, type EdgeOneCheckResult} from '../edgeone';
 
 const api = new Hono<{ Bindings: Env }>();
 
@@ -70,7 +71,9 @@ api.post('/report', async (c) => {
 
         // 计算负荷（0-9）
         let load = 0;
-        if (data.status === 'offline') {
+        // 如果节点设置了总是在线，强制状态为 online
+        const effectiveStatus = node.always_online === 1 ? 'online' : data.status;
+        if (effectiveStatus === 'offline') {
             load = 1;
         } else {
             // 根据带宽、流量、连接数计算负荷
@@ -112,7 +115,7 @@ api.post('/report', async (c) => {
             newUsedTraffic,
             newResetDate,
             data.connection_count,
-            data.status,
+            effectiveStatus,
             newRecentStatus,
             now.toISOString(),
             networkCount,
@@ -135,7 +138,7 @@ api.post('/report', async (c) => {
             await saveRouteInfo(c.env.DB, node.id, data.route_info);
         }
 
-        // 方案C：更新扩展字段（public_ip, easytier_version, uptime_seconds, latency_ms）
+        // 方案C：更新扩展字段（public_ip, easytier_version, uptime_seconds, latency_ms, is_limited, limited_bandwidth, active_policies）
         const extUpdates: string[] = [];
         const extValues: any[] = [];
         if (data.public_ip !== undefined) {
@@ -153,6 +156,19 @@ api.post('/report', async (c) => {
         if (data.latency_ms !== undefined) {
             extUpdates.push('monitor_latency_ms = ?');
             extValues.push(data.latency_ms);
+        }
+        // 流量策略相关字段
+        if (data.is_limited !== undefined) {
+            extUpdates.push('is_limited = ?');
+            extValues.push(data.is_limited ? 1 : 0);
+        }
+        if (data.limited_bandwidth !== undefined) {
+            extUpdates.push('limited_bandwidth = ?');
+            extValues.push(data.limited_bandwidth);
+        }
+        if (data.active_policies !== undefined) {
+            extUpdates.push('active_policies = ?');
+            extValues.push(JSON.stringify(data.active_policies));
         }
         if (extUpdates.length > 0) {
             extValues.push(node.id);
@@ -209,7 +225,7 @@ api.use('/query', async (c) => {
 
         console.log(data);
         // 构建查询条件
-        let query = 'SELECT * FROM nodes WHERE status = ? AND valid_until > ? AND is_enabled = 1';
+        let query = 'SELECT * FROM nodes WHERE (status = ? OR always_online = 1) AND valid_until > ? AND is_enabled = 1';
         const params: any[] = ['online', new Date().toISOString()];
 
         // 地域筛选
@@ -306,7 +322,7 @@ api.get('/public', async (c) => {
         const params: any[] = [new Date().toISOString()];
 
         if (!showOffline) {
-            query += ' AND status = ?';
+            query += ' AND (status = ? OR always_online = 1)';
             params.push('online');
         }
 
@@ -329,15 +345,24 @@ api.get('/public', async (c) => {
             max_connections: node.max_connections,
             tags: node.tags,
             notes: node.notes,
-            status: node.status,
+            status: node.always_online === 1 ? 'online' : node.status,
             recent_status: node.recent_status,
             allow_relay: node.allow_relay,
             is_enabled: node.is_enabled,
-            reset_date: node.reset_date
+            reset_date: node.reset_date,
+            always_online: node.always_online,
+            // 限速与策略状态
+            is_limited: node.is_limited === 1,
+            limited_bandwidth: node.limited_bandwidth || 0,
+            current_network_limit_mbps: node.current_network_limit_mbps || 0,
+            other_network_limit_mbps: node.other_network_limit_mbps || 0,
+            active_policies: node.active_policies ? JSON.parse(node.active_policies) : [],
+            public_ip: node.public_ip || '',
+            uptime_seconds: node.uptime_seconds || 0,
         }));
 
-        // 计算在线节点的平均负载和总连接数
-        const onlineNodes = results.filter((n: any) => n.status === 'online');
+        // 计算在线节点的平均负载和总连接数（always_online=1 的节点视为在线）
+        const onlineNodes = results.filter((n: any) => n.status === 'online' || n.always_online === 1);
         const totalConnections = onlineNodes.reduce((sum: number, n: any) => sum + n.connection_count, 0);
         const avgBandwidth = onlineNodes.length > 0
             ? onlineNodes.reduce((sum: number, n: any) => sum + n.current_bandwidth, 0) / onlineNodes.length
@@ -369,9 +394,9 @@ api.get('/stats', async (c) => {
             'SELECT COUNT(*) as count FROM nodes WHERE is_enabled = 1'
         ).first();
 
-        // 在线节点数
+        // 在线节点数（包含 always_online=1 的节点）
         const onlineNodes = await c.env.DB.prepare(
-            'SELECT COUNT(*) as count FROM nodes WHERE status = ? AND is_enabled = 1'
+            'SELECT COUNT(*) as count FROM nodes WHERE (status = ? OR always_online = 1) AND is_enabled = 1'
         ).bind('online').first();
 
         // 国内节点数
@@ -550,9 +575,15 @@ api.post('/monitor/report', async (c) => {
                 }
 
                 // 更新节点状态
-                const status = result.is_online ? 'online' : 'offline';
-                const load = result.is_online ? 2 : 1;
+                const isAlwaysOnline = node.always_online === 1;
+                const status = (result.is_online || isAlwaysOnline) ? 'online' : 'offline';
+                const load = (result.is_online || isAlwaysOnline) ? 2 : 1;
                 const newRecentStatus = updateRecentStatus(node.recent_status, load);
+
+                // 离线时不重置 connection_count，保持原值
+                const connectionCount = result.is_online
+                    ? (result.connection_count || 0)
+                    : node.connection_count;
 
                 await c.env.DB.prepare(`
                     UPDATE nodes
@@ -565,7 +596,7 @@ api.post('/monitor/report', async (c) => {
                     status,
                     newRecentStatus,
                     now.toISOString(),
-                    result.connection_count || 0,
+                    connectionCount,
                     node.id
                 ).run();
 
@@ -686,6 +717,199 @@ async function saveRouteInfo(db: any, nodeId: number, routes: RouteInfo[]) {
         }
     } catch (error) {
         console.error('保存路由信息失败:', error);
+    }
+}
+
+// ============================================================
+// EdgeOne 云函数检测路由（一体化部署模式）
+// ============================================================
+
+// EdgeOne API Key 鉴权中间件
+api.use('/edgeone/*', async (c, next) => {
+    const apiKey = c.req.header('X-API-Key');
+    if (!verifyEdgeOneApiKey(c.env, apiKey)) {
+        return c.json({error: '未授权：API Key 验证失败'}, 401);
+    }
+    await next();
+});
+
+// 单节点检测
+api.get('/edgeone/check', async (c) => {
+    const server = c.req.query('server');
+    const networkName = c.req.query('network_name');
+    const networkSecret = c.req.query('network_secret');
+
+    if (!server || !networkName || !networkSecret) {
+        return c.json({
+            error: '缺少必填参数',
+            required: ['server', 'network_name', 'network_secret'],
+            example: '/api/edgeone/check?server=tcp://IP:PORT&network_name=xxx&network_secret=xxx',
+        }, 400);
+    }
+
+    // 一体化模式下，如果配置了 EdgeOne 远程 API，则转发请求
+    if (isEdgeOneCheckEnabled(c.env)) {
+        const result = await checkNodeViaEdgeOne(c.env, server, networkName, networkSecret);
+        return c.json(result);
+    }
+
+    // 否则使用本地 TCP 检测
+    try {
+        // 解析连接地址
+        const urlMatch = server.match(/^(tcp|ws|wss):\/\/(.+):(\d+)$/i);
+        if (!urlMatch) {
+            return c.json({error: '无效的连接地址格式，应为 tcp://IP:PORT 或 ws://IP:PORT 或 wss://IP:PORT'}, 400);
+        }
+
+        const [, connType, ip, portStr] = urlMatch;
+        const port = parseInt(portStr, 10);
+
+        if (isNaN(port) || port < 1 || port > 65535) {
+            return c.json({error: '无效的端口号'}, 400);
+        }
+
+        // 使用 TCP 连接检测（复用 index.tsx 中的逻辑）
+        const isOnline = await checkTcpConnectionLocal(ip, port, 10000);
+        const checkTime = new Date().toISOString();
+
+        const result: EdgeOneCheckResult = {
+            is_online: isOnline,
+            connection_count: 0, // TCP 检测无法获取连接数
+            latency_ms: isOnline ? 0 : -1,
+            check_time: checkTime,
+            error: isOnline ? undefined : '连接失败',
+        };
+
+        return c.json(result);
+    } catch (error: any) {
+        return c.json({
+            is_online: false,
+            connection_count: 0,
+            latency_ms: -1,
+            check_time: new Date().toISOString(),
+            error: error.message || '检测失败',
+        }, 500);
+    }
+});
+
+// 批量检测
+api.post('/edgeone/batch-check', async (c) => {
+    try {
+        const body = await c.req.json();
+        const nodes = body.nodes;
+
+        if (!nodes || !Array.isArray(nodes)) {
+            return c.json({error: '缺少 nodes 字段或格式不正确'}, 400);
+        }
+
+        if (nodes.length === 0) {
+            return c.json({error: '节点列表不能为空'}, 400);
+        }
+
+        if (nodes.length > 20) {
+            return c.json({error: '单次批量检测最多支持 20 个节点'}, 400);
+        }
+
+        // 验证每个节点的必填参数
+        for (const node of nodes) {
+            if (!node.server || !node.network_name || !node.network_secret) {
+                return c.json({error: '每个节点必须包含 server、network_name、network_secret 字段'}, 400);
+            }
+        }
+
+        // 一体化模式下，如果配置了 EdgeOne 远程 API，则转发请求
+        if (isEdgeOneCheckEnabled(c.env)) {
+            const results = await batchCheckViaEdgeOne(c.env, nodes);
+            return c.json({results});
+        }
+
+        // 否则使用本地 TCP 逐个检测
+        const results: EdgeOneCheckResult[] = [];
+        const batchSize = 5;
+
+        for (let i = 0; i < nodes.length; i += batchSize) {
+            const batch = nodes.slice(i, i + batchSize);
+            const batchResults = await Promise.all(
+                batch.map(async (node: any) => {
+                    try {
+                        const urlMatch = node.server.match(/^(tcp|ws|wss):\/\/(.+):(\d+)$/i);
+                        if (!urlMatch) {
+                            return {
+                                is_online: false,
+                                connection_count: 0,
+                                latency_ms: -1,
+                                check_time: new Date().toISOString(),
+                                error: '无效的连接地址格式',
+                            } as EdgeOneCheckResult;
+                        }
+
+                        const [, , ip, portStr] = urlMatch;
+                        const port = parseInt(portStr, 10);
+                        const isOnline = await checkTcpConnectionLocal(ip, port, 10000);
+
+                        return {
+                            is_online: isOnline,
+                            connection_count: 0,
+                            latency_ms: isOnline ? 0 : -1,
+                            check_time: new Date().toISOString(),
+                            error: isOnline ? undefined : '连接失败',
+                        } as EdgeOneCheckResult;
+                    } catch (error: any) {
+                        return {
+                            is_online: false,
+                            connection_count: 0,
+                            latency_ms: -1,
+                            check_time: new Date().toISOString(),
+                            error: error.message || '检测失败',
+                        } as EdgeOneCheckResult;
+                    }
+                })
+            );
+            results.push(...batchResults);
+        }
+
+        return c.json({results});
+    } catch (error: any) {
+        return c.json({error: '批量检测失败', detail: error.message}, 500);
+    }
+});
+
+// 健康状态
+api.get('/edgeone/health', async (c) => {
+    return c.json({
+        status: 'ok',
+        service: 'edgeone-check',
+        mode: isEdgeOneCheckEnabled(c.env) ? 'remote' : 'local',
+        timestamp: new Date().toISOString(),
+    });
+});
+
+// 本地 TCP 连接检测辅助函数（一体化模式下使用）
+async function checkTcpConnectionLocal(ip: string, port: number, timeoutMs: number = 5000): Promise<boolean> {
+    try {
+        // 动态导入 cloudflare:sockets（仅在 Cloudflare Workers 环境可用）
+        const {connect} = await import('cloudflare:sockets');
+        const socket = connect({hostname: ip, port: port});
+
+        const timeoutPromise = new Promise<boolean>((_, reject) => {
+            setTimeout(() => reject(new Error('timeout')), timeoutMs);
+        });
+
+        const connectPromise = (async () => {
+            try {
+                const writer = socket.writable.getWriter();
+                await writer.close();
+                return true;
+            } catch {
+                return false;
+            }
+        })();
+
+        const result = await Promise.race([connectPromise, timeoutPromise]);
+        try { socket.close(); } catch {}
+        return result as boolean;
+    } catch {
+        return false;
     }
 }
 

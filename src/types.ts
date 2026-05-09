@@ -64,6 +64,7 @@ export interface Node {
     network_token?: string;
     offline_notify: number; // 节点首次下线通知选项：0-不通知，1-通知微信，2-通知邮箱，3-TG通知
     last_offline_notify_at?: string; // 最后一次下线通知时间
+    always_online: number; // 总是在线：0-否，1-是，勾选后节点不会被标记为离线
     network_count: number; // 当前网络数（由客户端上报）
     relay_bandwidth: number; // 中转带宽（Mbps，由客户端上报）
     current_network_only: number; // 是否仅允许当前网络（由客户端上报）
@@ -102,12 +103,24 @@ export interface NodeCreateRequest {
     network_name?: string;
     network_token?: string;
     offline_notify?: number; // 节点首次下线通知选项：0-不通知，1-通知微信，2-通知邮箱，3-TG通知
+    always_online?: number; // 总是在线：0-否，1-是，勾选后节点不会被标记为离线
+    // 流量控制与限速配置
+    current_network_limit_mbps?: number;
+    other_network_limit_mbps?: number;
+    enable_traffic_stats?: number;
+    traffic_reset_by_days?: number;
+    traffic_reset_day?: number;
+    // 上报配置
+    report_urls?: string;
+    report_secret?: string;
+    report_interval_minutes?: number;
 }
 
 export interface NodeUpdateRequest extends Partial<NodeCreateRequest> {
     correction_traffic?: number;
     tier_bandwidth?: number;
     offline_notify?: number;
+    always_online?: number;
 }
 
 export interface NodeReportRequest {
@@ -132,6 +145,85 @@ export interface NodeReportRequest {
     public_ip?: string; // 节点的公网 IP
     easytier_version?: string; // EasyTier 版本号
     uptime_seconds?: number; // 节点运行时长（秒）
+    // 流量策略相关字段
+    is_limited?: boolean; // 是否被策略限速
+    limited_bandwidth?: number; // 当前策略限速带宽（Mbps）
+    active_policies?: ActivePolicyInfo[]; // 激活的策略列表
+}
+
+// 激活的策略信息
+export interface ActivePolicyInfo {
+    action: string; // 策略动作
+    threshold_gb: number; // 流量阈值（GB）
+}
+
+// 流量统计信息
+export interface TrafficStatsInfo {
+    tx_bytes: number;
+    rx_bytes: number;
+    total_bytes: number;
+    total_gb: number;
+    last_reset_time: number;
+    is_reset_by_days: boolean;
+    reset_day: number;
+    reset_by_days: number;
+}
+
+// 带宽限制配置
+export interface BandwidthLimitConfig {
+    current_network_limit_mbps?: number;
+    other_network_limit_mbps?: number;
+}
+
+// 策略状态信息
+export interface PolicyStateInfo {
+    action: number;
+    rule?: FlowPolicyRule;
+    is_active: boolean;
+    current_bandwidth_limit_mbps?: number;
+}
+
+// 流量策略规则
+export interface FlowPolicyRule {
+    traffic_threshold_gb: number;
+    action: number;
+    bandwidth_limit_mbps?: number;
+    whitelist_networks?: string[];
+}
+
+// 流量策略配置
+export interface FlowPolicyConfig {
+    rules: FlowPolicyRule[];
+    monthly_reset_day: number;
+    reset_by_days: number;
+    enable_traffic_stats?: boolean;
+}
+
+// 上报端点配置
+export interface ReportEndpoint {
+    url: string;
+    secret: string;
+}
+
+// 上报配置
+export interface ReportConfig {
+    endpoints?: ReportEndpoint[];
+    report_urls?: string[];
+    report_token?: string;
+    heartbeat_interval_minutes: number;
+}
+
+// 获取流量统计响应
+export interface GetTrafficStatsResponse {
+    stats?: TrafficStatsInfo;
+    active_policies?: PolicyStateInfo[];
+    bandwidth_limit?: BandwidthLimitConfig;
+}
+
+// 重置流量统计响应
+export interface ResetTrafficStatsResponse {
+    success: boolean;
+    message: string;
 }
 
 // 方案C：Peer 信息（由 EasyTier 客户端上报）
@@ -187,6 +279,10 @@ export interface Env {
     ADMIN_EMAIL: string;
     RESEND_API_KEY: string;
     ENABLE_EMAIL_VERIFICATION?: string; // 是否启用邮件验证，默认false
+    // EdgeOne 云函数检测配置
+    EDGEONE_CHECK_API?: string; // EdgeOne 云函数 API 端点地址（如 https://your-app.edgeone.app/api/edgeone）
+    EDGEONE_CHECK_TIMEOUT?: string; // EdgeOne 检测超时时间（秒），默认 30
+    EDGEONE_CHECK_API_KEY?: string; // EdgeOne 云函数鉴权密钥
 }
 
 // JWT Payload 类型

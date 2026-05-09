@@ -104,6 +104,9 @@ docker compose up -d --build
 | `MONITOR_LOG_LEVEL` | `INFO` | Monitor 日志级别（DEBUG/INFO/WARNING/ERROR）|
 | `ENABLE_EMAIL_VERIFICATION` | `false` | 是否开启邮箱验证 |
 | `SITE_NAME` | `EasyTier 节点管理系统` | 站点名称 |
+| `EDGEONE_API_URL` | 空 | EdgeOne 云函数地址（配置后启用远程检测） |
+| `EDGEONE_API_KEY` | 空 | 调用 EdgeOne 云函数的 API Key |
+| `EDGEONE_CHECK_TIMEOUT` | `30000` | EdgeOne 检测超时时间（毫秒） |
 
 #### 常用命令
 
@@ -143,6 +146,68 @@ npx wrangler d1 create easytier-db
 
 # 部署到 Cloudflare
 npm run deploy
+```
+
+---
+
+### 🌐 方式三：EdgeOne Pages 云函数部署
+
+> 适合需要在中国大陆访问的场景，利用腾讯云 EdgeOne 边缘网络加速。支持两种部署模式。
+
+#### 模式一：独立云函数部署
+
+将 Python 云函数部署到 EdgeOne Pages，作为独立的节点检测代理，转发检测请求到 Hono 主服务。
+
+1. 在 EdgeOne Pages 控制台创建项目，选择「从本地目录部署」
+2. 将 `py-functions/` 目录作为部署根目录
+3. 配置环境变量：
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `HONO_API_URL` | ✅ | Hono 主服务地址（如 `https://your-app.workers.dev`） |
+| `API_KEY` | ❌ | API 鉴权密钥，保护检测接口 |
+| `HONO_API_KEY` | ❌ | 调用 Hono 接口时使用的 API Key |
+| `CHECK_TIMEOUT` | ❌ | 检测超时时间（秒，默认 30） |
+
+4. 部署后访问 `https://your-edgeone-domain/api/edgeone/health` 验证服务状态
+
+#### 模式二：一体化部署（Hono 内置路由）
+
+在 Hono 主服务中配置 EdgeOne 检测环境变量，使用内置的检测路由：
+
+1. 在 `wrangler.jsonc` 中添加环境变量：
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `EDGEONE_API_URL` | ❌ | EdgeOne 云函数地址（配置后使用远程检测，否则使用本地 TCP 检测） |
+| `EDGEONE_API_KEY` | ❌ | 调用 EdgeOne 云函数时的 API Key |
+| `EDGEONE_CHECK_TIMEOUT` | ❌ | 检测超时时间（毫秒，默认 30000） |
+
+2. 检测路由自动注册，无需额外代码：
+
+| 路由 | 方法 | 说明 |
+|------|------|------|
+| `/api/edgeone/check` | GET | 单节点在线检测 |
+| `/api/edgeone/batch-check` | POST | 批量节点在线检测（最多 20 个） |
+| `/api/edgeone/health` | GET | 云函数健康状态 |
+
+#### 调用示例
+
+```bash
+# 单节点检测
+curl "https://your-domain/api/edgeone/check?server=tcp://1.2.3.4:11010&network_name=MyNet&network_secret=MyPass" \
+  -H "X-API-Key: your-api-key"
+
+# 批量检测
+curl -X POST "https://your-domain/api/edgeone/batch-check" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "nodes": [
+      {"server": "tcp://1.2.3.4:11010", "network_name": "MyNet", "network_secret": "MyPass"},
+      {"server": "ws://5.6.7.8:11011", "network_name": "TestNet", "network_secret": "TestPass"}
+    ]
+  }'
 ```
 
 ---
@@ -325,6 +390,7 @@ easytierwork/
 │   │   ├── admin.ts        # 管理面板
 │   │   └── settings.ts     # 系统设置
 │   ├── index.tsx           # 应用入口
+│   ├── edgeone.ts          # EdgeOne 云函数检测模块
 │   ├── types.ts            # 类型定义
 │   ├── utils.ts            # 工具函数
 │   └── style.css           # 样式文件
@@ -350,6 +416,11 @@ easytierwork/
 │   ├── node_reporter.py    # 节点上报
 │   ├── client_query.py     # 客户端查询
 │   └── test_system.py      # 系统测试
+├── 📂 py-functions/          # EdgeOne Python 云函数
+│   └── 📂 api/edgeone/     # EdgeOne 检测接口
+│       ├── check.py       # 单节点检测
+│       ├── health.py      # 健康状态
+│       └── batch-check.py # 批量检测
 ├── 📂 docs/                # 核心文档
 │   ├── README.md          # 完整使用指南
 │   ├── API.md             # API 接口文档

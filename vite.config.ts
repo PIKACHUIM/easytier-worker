@@ -27,6 +27,7 @@ export default defineConfig({
         minify: true,
         rollupOptions: {
             input: './src/cfapp.ts',
+            external: ['cloudflare:sockets'],
             output: {
                 entryFileNames: 'index.js',
                 format: 'es'

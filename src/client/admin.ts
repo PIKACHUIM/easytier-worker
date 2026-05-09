@@ -99,6 +99,7 @@ async function loadAllNodes() {
         <div><span style="color:var(--text-muted);">有效期至：</span>${new Date(node.valid_until).toLocaleString()}</div>
         <div><span style="color:var(--text-muted);">最后上报：</span>${node.last_report_at ? new Date(node.last_report_at).toLocaleString() : '从未上报'}</div>
         <div><span style="color:var(--text-muted);">允许中转：</span>${node.allow_relay ? '是' : '否'}</div>
+        <div><span style="color:var(--text-muted);">总是在线：</span>${node.always_online === 1 ? '📌 是' : '否'}</div>
         ${node.tags ? `<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">标签：</span>${escapeHtml(node.tags)}</div>` : ''}
         ${node.notes ? `<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">备注：</span>${escapeHtml(node.notes)}</div>` : ''}
       </div>

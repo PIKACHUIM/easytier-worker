@@ -239,13 +239,31 @@ window.editAdminNode = (nodeId) => {
   document.getElementById('admin-reset-cycle').value = node.reset_cycle || '';
   document.getElementById('admin-allow-relay').checked = node.allow_relay;
   
+  // 处理总是在线选项
+  var alwaysOnlineCheckbox = document.getElementById('admin-always-online');
+  if (alwaysOnlineCheckbox) {
+    alwaysOnlineCheckbox.checked = node.always_online === 1;
+  }
+  
   // 处理节点启用状态
   const isEnabledCheckbox = document.getElementById('admin-is-enabled');
+  const isApprovedCheckbox = document.getElementById('admin-is-approved');
+  
+  // 设置审核状态：is_enabled不为-1表示已审核
+  if (isApprovedCheckbox) {
+    isApprovedCheckbox.checked = node.is_enabled !== -1;
+  }
   
   // 管理员可以自由设置启用状态
   isEnabledCheckbox.checked = node.is_enabled === 1;
   isEnabledCheckbox.disabled = false;
-  isEnabledCheckbox.title = '启用或禁用节点';
+  
+  // 根据审核状态设置启用复选框的提示
+  if (isApprovedCheckbox && !isApprovedCheckbox.checked) {
+    isEnabledCheckbox.title = '未审核状态下无法启用节点';
+  } else {
+    isEnabledCheckbox.title = '启用或禁用节点';
+  }
   
   document.getElementById('admin-tags').value = node.tags || '';
   document.getElementById('admin-notes').value = node.notes || '';
@@ -279,6 +297,37 @@ window.editAdminNode = (nodeId) => {
   }
   
   document.getElementById('admin-modal-title').textContent = '编辑节点';
+
+  // 预填流量控制设置
+  const currentNetLimitEl = document.getElementById('admin-current-network-limit');
+  const otherNetLimitEl = document.getElementById('admin-other-network-limit');
+  const reportUrlsEl = document.getElementById('admin-report-urls');
+  const reportSecretEl = document.getElementById('admin-report-secret');
+  const reportIntervalEl = document.getElementById('admin-report-interval');
+  const trafficResetTypeEl = document.getElementById('admin-traffic-reset-type');
+  const trafficResetValueEl = document.getElementById('admin-traffic-reset-value');
+  const enableTrafficStatsEl = document.getElementById('admin-enable-traffic-stats');
+
+  if (currentNetLimitEl) currentNetLimitEl.value = node.current_network_limit_mbps || 0;
+  if (otherNetLimitEl) otherNetLimitEl.value = node.other_network_limit_mbps || 0;
+  if (reportUrlsEl) reportUrlsEl.value = node.report_urls || '';
+  if (reportSecretEl) reportSecretEl.value = node.report_secret || '';
+  if (reportIntervalEl) reportIntervalEl.value = node.report_interval_minutes || 5;
+  if (enableTrafficStatsEl) enableTrafficStatsEl.checked = node.enable_traffic_stats !== false;
+
+  if (trafficResetTypeEl && trafficResetValueEl) {
+    if (node.traffic_reset_by_days && node.traffic_reset_by_days > 0) {
+      trafficResetTypeEl.value = 'days';
+      trafficResetValueEl.value = node.traffic_reset_by_days;
+    } else if (node.traffic_reset_day && node.traffic_reset_day > 0) {
+      trafficResetTypeEl.value = 'monthly';
+      trafficResetValueEl.value = node.traffic_reset_day;
+    } else {
+      trafficResetTypeEl.value = 'none';
+      trafficResetValueEl.value = '';
+    }
+  }
+
   const adminNodeModal = document.getElementById('admin-node-modal');
   if (adminNodeModal) {
     if (adminNodeModal.parentElement !== document.body) {
@@ -362,10 +411,21 @@ const data = {
     max_traffic: parseFloat(document.getElementById('admin-max-traffic').value) || 0,
     reset_cycle: parseInt(document.getElementById('admin-reset-cycle').value) || 0,
     allow_relay: document.getElementById('admin-allow-relay').checked ? 1 : 0,
+    always_online: document.getElementById('admin-always-online') ? (document.getElementById('admin-always-online').checked ? 1 : 0) : 0,
     is_enabled: final_is_enabled,
     tags: document.getElementById('admin-tags').value.trim(),
     notes: document.getElementById('admin-notes').value,
-    valid_until: document.getElementById('admin-valid-until').value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    valid_until: document.getElementById('admin-valid-until').value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    // 流量控制字段
+    current_network_limit_mbps: parseFloat(document.getElementById('admin-current-network-limit')?.value) || 0,
+    other_network_limit_mbps: parseFloat(document.getElementById('admin-other-network-limit')?.value) || 0,
+    enable_traffic_stats: document.getElementById('admin-enable-traffic-stats')?.checked ? 1 : 0,
+    traffic_reset_by_days: document.getElementById('admin-traffic-reset-type')?.value === 'days' ? (parseInt(document.getElementById('admin-traffic-reset-value')?.value) || 0) : 0,
+    traffic_reset_day: document.getElementById('admin-traffic-reset-type')?.value === 'monthly' ? (parseInt(document.getElementById('admin-traffic-reset-value')?.value) || 1) : 0,
+    // 上报设置字段
+    report_urls: document.getElementById('admin-report-urls')?.value || '',
+    report_secret: document.getElementById('admin-report-secret')?.value || '',
+    report_interval_minutes: parseInt(document.getElementById('admin-report-interval')?.value) || 5,
   };
   
   const nodeId = document.getElementById('admin-node-id').value;

@@ -2,6 +2,8 @@ import {Hono} from 'hono'
 import {cors} from 'hono/cors'
 import {renderer} from './renderer'
 import type {Env} from './types'
+import {connect} from 'cloudflare:sockets'
+import {isEdgeOneCheckEnabled, checkNodeViaEdgeOne, batchCheckViaEdgeOne, verifyEdgeOneApiKey, type EdgeOneCheckResult} from './edgeone'
 import auth from './routes/auth'
 import nodes from './routes/nodes'
 import api from './routes/api'
@@ -83,8 +85,50 @@ app.get('/reset-password', (c) => {
 })
 
 app.get('/cron', async (c) => {
-    await scheduled(null, c.env, c);
-    return c.text('Cron job executed successfully');
+    const startTime = Date.now();
+
+    // 执行完整定时任务（含健康检查），返回检测报告
+    const healthReport = await scheduled(null, c.env, c);
+
+    const elapsed = Date.now() - startTime;
+
+    const lines: string[] = [];
+    lines.push('=== Cron Job Executed ===');
+    lines.push(`Time: ${new Date().toISOString()}`);
+    lines.push(`Duration: ${elapsed}ms`);
+    lines.push('');
+    lines.push('=== TCP Health Check Report ===');
+    lines.push(`Total nodes: ${healthReport.total}`);
+    lines.push(`Checked: ${healthReport.checked}`);
+    lines.push(`Online: ${healthReport.online}`);
+    lines.push(`Offline: ${healthReport.offline}`);
+    lines.push(`Skipped: ${healthReport.skipped}`);
+    lines.push('');
+    lines.push('--- Details ---');
+    for (const d of healthReport.details) {
+        lines.push(`[${d.nodeId}] ${d.nodeName} | ${d.target} | ${d.result}`);
+    }
+
+    return c.text(lines.join('\n'));
+})
+
+app.get('/health-check', async (c) => {
+    const startTime = Date.now();
+    const report = await checkNodesHealth(c.env);
+    const elapsed = Date.now() - startTime;
+
+    return c.json({
+        duration_ms: elapsed,
+        timestamp: new Date().toISOString(),
+        summary: {
+            total: report.total,
+            checked: report.checked,
+            online: report.online,
+            offline: report.offline,
+            skipped: report.skipped
+        },
+        details: report.details
+    });
 })
 
 // 更新统计历史数据的辅助函数
@@ -187,12 +231,241 @@ async function getStatsHistory(db: any) {
     }
 }
 
-export async function scheduled(event: any, env: Env, ctx: any): Promise<void> {
+// TCP 连接检测：尝试建立 TCP 连接来判断节点是否在线
+async function checkTcpConnection(ip: string, port: number, timeoutMs: number = 5000): Promise<boolean> {
+    try {
+        const socket = connect({hostname: ip, port: port});
+
+        // 设置超时
+        const timeoutPromise = new Promise<boolean>((_, reject) => {
+            setTimeout(() => reject(new Error('timeout')), timeoutMs);
+        });
+
+        const connectPromise = (async () => {
+            try {
+                // 尝试写入一些数据来确认连接建立
+                const writer = socket.writable.getWriter();
+                await writer.close();
+                return true;
+            } catch {
+                return false;
+            }
+        })();
+
+        const result = await Promise.race([connectPromise, timeoutPromise]);
+        try { socket.close(); } catch {}
+        return result as boolean;
+    } catch {
+        return false;
+    }
+}
+
+// 批量检测节点 TCP 连接状态
+interface HealthCheckResult {
+    total: number;
+    checked: number;
+    online: number;
+    offline: number;
+    skipped: number;
+    details: {nodeName: string; nodeId: number; target: string; result: string}[];
+}
+
+async function checkNodesHealth(env: Env): Promise<HealthCheckResult> {
+    const useEdgeOne = isEdgeOneCheckEnabled(env);
+    console.log(`[健康检测] 开始${useEdgeOne ? ' EdgeOne 云函数' : ' TCP 连接'}检测`);
+    const report: HealthCheckResult = {total: 0, checked: 0, online: 0, offline: 0, skipped: 0, details: []};
+
+    try {
+        // 查询所有启用的节点（EdgeOne 模式需要额外查询 network_name 和 network_token）
+        const selectFields = useEdgeOne
+            ? `id, node_name, connections, status, always_online, network_name, network_token`
+            : `id, node_name, connections, status, always_online`;
+
+        const {results: nodesToCheck} = await env.DB.prepare(
+            `SELECT ${selectFields} FROM nodes WHERE is_enabled = 1`
+        ).all();
+
+        if (!nodesToCheck || nodesToCheck.length === 0) {
+            console.log('[健康检测] 无需检测的节点');
+            return report;
+        }
+
+        report.total = nodesToCheck.length;
+
+        // 先处理 always_online 节点（不做检测）
+        const normalNodes: any[] = [];
+        for (const node of nodesToCheck as any[]) {
+            if (node.always_online === 1) {
+                report.checked++;
+                report.online++;
+                report.details.push({nodeName: node.node_name, nodeId: node.id, target: '(always_online)', result: '📌 always online'});
+                continue;
+            }
+            normalNodes.push(node);
+        }
+
+        if (useEdgeOne) {
+            // EdgeOne 云函数检测模式
+            const edgeOneNodes: { nodeId: number; nodeName: string; server: string; network_name: string; network_secret: string }[] = [];
+            const skippedNodes: any[] = [];
+
+            for (const node of normalNodes) {
+                let connections: any[];
+                try {
+                    connections = JSON.parse(node.connections);
+                } catch {
+                    skippedNodes.push(node);
+                    continue;
+                }
+
+                // 找到可用的连接地址
+                const tcpConn = connections.find((c: any) => c.type === 'TCP');
+                const wsConn = !tcpConn ? connections.find((c: any) => c.type === 'WS' || c.type === 'WSS') : null;
+                const conn = tcpConn || wsConn;
+
+                if (!conn) {
+                    skippedNodes.push(node);
+                    continue;
+                }
+
+                const server = `${conn.type.toLowerCase()}://${conn.ip}:${conn.port}`;
+                const networkName = node.network_name || '';
+                const networkSecret = node.network_token || '';
+
+                if (!networkName) {
+                    skippedNodes.push(node);
+                    continue;
+                }
+
+                edgeOneNodes.push({
+                    nodeId: node.id,
+                    nodeName: node.node_name,
+                    server,
+                    network_name: networkName,
+                    network_secret: networkSecret,
+                });
+            }
+
+            // 处理跳过的节点
+            for (const node of skippedNodes) {
+                report.checked++;
+                report.skipped++;
+                report.details.push({nodeName: node.node_name, nodeId: node.id, target: '(no TCP/WS or no network_name)', result: 'skipped'});
+            }
+
+            // 批量通过 EdgeOne 检测
+            if (edgeOneNodes.length > 0) {
+                console.log(`[EdgeOne检测] 批量检测 ${edgeOneNodes.length} 个节点`);
+                const checkResults = await batchCheckViaEdgeOne(env, edgeOneNodes.map(n => ({
+                    server: n.server,
+                    network_name: n.network_name,
+                    network_secret: n.network_secret,
+                })));
+
+                for (let i = 0; i < edgeOneNodes.length; i++) {
+                    const node = edgeOneNodes[i];
+                    const result = checkResults[i] || {is_online: false, connection_count: 0, latency_ms: -1, error: '无检测结果'};
+                    report.checked++;
+
+                    if (result.is_online) {
+                        report.online++;
+                        report.details.push({nodeName: node.nodeName, nodeId: node.nodeId, target: node.server, result: `✅ online (EdgeOne, ${result.latency_ms}ms, ${result.connection_count} conns)`});
+                        // 更新状态和上报时间、连接数
+                        await env.DB.prepare(
+                            `UPDATE nodes SET status = 'online', last_report_at = ?, connection_count = ? WHERE id = ? AND status = 'offline'`
+                        ).bind(new Date().toISOString(), result.connection_count, node.nodeId).run();
+                    } else {
+                        report.offline++;
+                        const errorInfo = result.error ? ` (${result.error})` : '';
+                        report.details.push({nodeName: node.nodeName, nodeId: node.nodeId, target: node.server, result: `❌ offline (EdgeOne)${errorInfo}`});
+                        // 仅更新状态为离线，不重置连接数和带宽信息
+                        await env.DB.prepare(
+                            `UPDATE nodes SET status = 'offline' WHERE id = ? AND status = 'online'`
+                        ).bind(node.nodeId).run();
+                    }
+                }
+            }
+        } else {
+            // TCP 直连检测模式（原有逻辑）
+            const batchSize = 5;
+            for (let i = 0; i < normalNodes.length; i += batchSize) {
+                const batch = normalNodes.slice(i, i + batchSize);
+                const results = await Promise.allSettled(batch.map(async (node: any) => {
+                    let connections: any[];
+                    try {
+                        connections = JSON.parse(node.connections);
+                    } catch {
+                        return {nodeId: node.id, nodeName: node.node_name, target: '(invalid connections)', isOnline: false as boolean | null};
+                    }
+
+                    // 找到第一个 TCP 类型的连接进行检测
+                    const tcpConn = connections.find((c: any) => c.type === 'TCP');
+                    if (!tcpConn) {
+                        // 没有 TCP 连接，尝试 WS/WSS（也是基于 TCP 的）
+                        const wsConn = connections.find((c: any) => c.type === 'WS' || c.type === 'WSS');
+                        if (!wsConn) {
+                            // 无可检测的连接类型，跳过（保持当前状态不变）
+                            return {nodeId: node.id, nodeName: node.node_name, target: '(no TCP/WS)', isOnline: null as boolean | null};
+                        }
+                        const target = `${wsConn.type}://${wsConn.ip}:${wsConn.port}`;
+                        const isOnline = await checkTcpConnection(wsConn.ip, wsConn.port, 5000);
+                        return {nodeId: node.id, nodeName: node.node_name, target, isOnline: isOnline as boolean | null};
+                    }
+
+                    const target = `TCP://${tcpConn.ip}:${tcpConn.port}`;
+                    const isOnline = await checkTcpConnection(tcpConn.ip, tcpConn.port, 5000);
+                    return {nodeId: node.id, nodeName: node.node_name, target, isOnline: isOnline as boolean | null};
+                }));
+
+                // 处理检测结果
+                for (const result of results) {
+                    if (result.status === 'fulfilled') {
+                        const {nodeId, nodeName, target, isOnline} = result.value;
+                        report.checked++;
+
+                        if (isOnline === null) {
+                            report.skipped++;
+                            report.details.push({nodeName, nodeId, target, result: 'skipped'});
+                            continue;
+                        }
+
+                        if (isOnline) {
+                            report.online++;
+                            report.details.push({nodeName, nodeId, target, result: '✅ online'});
+                            // 如果检测到在线，更新状态和上报时间
+                            await env.DB.prepare(
+                                `UPDATE nodes SET status = 'online', last_report_at = ? WHERE id = ? AND status = 'offline'`
+                            ).bind(new Date().toISOString(), nodeId).run();
+                        } else {
+                            report.offline++;
+                            report.details.push({nodeName, nodeId, target, result: '❌ offline'});
+                            // 如果检测到离线，更新状态（保留原有的连接数和带宽信息）
+                            await env.DB.prepare(
+                                `UPDATE nodes SET status = 'offline' WHERE id = ? AND status = 'online'`
+                            ).bind(nodeId).run();
+                        }
+                    }
+                }
+            }
+        }
+
+        console.log(`[健康检测] 检测完成: 共检测 ${report.checked} 个节点, 在线 ${report.online}, 离线 ${report.offline}`);
+    } catch (error) {
+        console.error('[健康检测] 检测出错:', error);
+    }
+    return report;
+}
+
+export async function scheduled(event: any, env: Env, ctx: any): Promise<HealthCheckResult> {
     console.log('[定时任务] 开始执行统计数据更新任务');
+    let healthReport: HealthCheckResult = {total: 0, checked: 0, online: 0, offline: 0, skipped: 0, details: []};
 
     try {
         const now = new Date();
         const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+
+        // 0. 先执行 TCP 连接健康检测（在标记离线之前，通过实际探测更新状态）
+        healthReport = await checkNodesHealth(env);
 
         // 1. 检查并更新离线节点（10分钟未上报）
         // 先查询即将下线的节点，用于发送通知
@@ -202,19 +475,19 @@ export async function scheduled(event: any, env: Env, ctx: any): Promise<void> {
              LEFT JOIN users u ON n.user_email = u.email
              WHERE n.status = 'online'
                AND n.is_enabled = 1
+               AND n.always_online != 1
                AND n.last_report_at < ?`
         ).bind(tenMinutesAgo.toISOString()).all();
 
         console.log(`[定时任务] 发现 ${offlineNodes.length} 个节点即将下线`);
 
-        // 更新节点状态为离线
+        // 更新节点状态为离线（保留原有的连接数和带宽信息）
         const offlineResult = await env.DB.prepare(
             `UPDATE nodes
-             SET status            = 'offline',
-                 connection_count  = 0,
-                 current_bandwidth = 0
+             SET status            = 'offline'
              WHERE status = 'online'
                AND is_enabled = 1
+               AND always_online != 1
                AND last_report_at < ?`
         ).bind(tenMinutesAgo.toISOString()).run();
 
@@ -258,6 +531,7 @@ export async function scheduled(event: any, env: Env, ctx: any): Promise<void> {
     } catch (error) {
         console.error('[定时任务] 执行统计数据更新时发生错误:', error);
     }
+    return healthReport;
 }
 
 // 发送节点下线通知

@@ -1900,7 +1900,8 @@ window.renderNodeCards = function(mode, nodes) {
   }
 
   var html = nodes.map(function(node) {
-    var isOnline = node.status === 'online';
+    var isAlwaysOnline = node.always_online === 1;
+    var isOnline = node.status === 'online' || isAlwaysOnline;
     var statusClass = isOnline ? 'online-card' : 'offline-card';
     var statusText = isOnline ? onlineText : offlineText;
     var regionText = node.region_type === 'domestic' ? domesticText : overseasText;
@@ -1959,6 +1960,11 @@ window.renderNodeCards = function(mode, nodes) {
       ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:linear-gradient(135deg,#d1fae5,#a7f3d0);border:1px solid #6ee7b7;border-radius:20px;color:#065f46;font-size:10px;font-weight:600;">🔀 支持中转</span>'
       : '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.1);border-radius:20px;color:var(--text-muted);font-size:10px;">🚫 不中转</span>';
 
+    // 总是在线标签
+    var alwaysOnlineBadge = isAlwaysOnline
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:1px solid #93c5fd;border-radius:20px;color:#1e40af;font-size:10px;font-weight:600;">📌 总是在线</span>'
+      : '';
+
     // 标签
     var tagsHtml = '';
     if (node.tags && node.tags.trim()) {
@@ -1980,7 +1986,7 @@ window.renderNodeCards = function(mode, nodes) {
       '<div class="node-card-header">' +
         '<div style="flex:1;min-width:0;">' +
           '<div class="node-card-name">' + window.escapeHtml(node.node_name) + '</div>' +
-          '<div class="node-card-region" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;">📍 ' + regionText + (node.region_detail ? ' · ' + window.escapeHtml(node.region_detail) : '') + (tagsHtml ? '<span style="display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:2px;">' + tagsHtml + '</span>' : '') + '<span style="margin-left:2px;">' + relayBadge + '</span>' + '</div>' +
+          '<div class="node-card-region" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;">📍 ' + regionText + (node.region_detail ? ' · ' + window.escapeHtml(node.region_detail) : '') + (tagsHtml ? '<span style="display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:2px;">' + tagsHtml + '</span>' : '') + '<span style="margin-left:2px;">' + relayBadge + '</span>' + (alwaysOnlineBadge ? '<span style="margin-left:2px;">' + alwaysOnlineBadge + '</span>' : '') + '</div>' +
         '</div>' +
         '<span class="node-status ' + (isOnline ? 'online' : 'offline') + '">' + statusText + '</span>' +
       '</div>' +
@@ -2077,8 +2083,8 @@ window.renderNodeRows = function(mode, nodes) {
       connectionInfo = '<span style="color:#999;font-style:italic;font-size:11px;">暂无连接</span>';
     }
 
-    var statusClass = node.status === 'online' ? 'online' : 'offline';
-    var statusText = node.status === 'online' ? onlineText : offlineText;
+    var statusClass = (node.status === 'online' || node.always_online === 1) ? 'online' : 'offline';
+    var statusText = (node.status === 'online' || node.always_online === 1) ? onlineText : offlineText;
     var regionText = node.region_type === 'domestic' ? domesticText : overseasText;
 
     var baseCols = '' +

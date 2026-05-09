@@ -85,6 +85,7 @@ if (jwt_secret !== c.env.JWT_SECRET) {
         report_token TEXT,
         network_name TEXT,
         network_token TEXT,
+        always_online INTEGER DEFAULT 0,
         FOREIGN KEY (user_email) REFERENCES users(email)
       )`,
       // 创建系统设置表
@@ -238,6 +239,7 @@ allow_relay INTEGER DEFAULT 0,
   report_token TEXT,
   network_name TEXT,
   network_token TEXT,
+  always_online INTEGER DEFAULT 0,
   FOREIGN KEY (user_email) REFERENCES users(email)
 );
 
@@ -311,6 +313,7 @@ INSERT OR IGNORE INTO confs (setting_key, setting_value, description) VALUES
         report_token TEXT,
         network_name TEXT,
         network_token TEXT,
+        always_online INTEGER DEFAULT 0,
         FOREIGN KEY (user_email) REFERENCES users(email)
       )`,
       // 创建系统设置表
@@ -407,6 +410,16 @@ await c.env.DB.prepare(
     } catch (error) {
       // 字段可能已存在，忽略错误
       console.log('nodes表is_enabled字段已存在或添加失败:', error);
+    }
+    
+    try {
+      // 检查并添加nodes表的always_online字段
+      await c.env.DB.prepare(`
+        ALTER TABLE nodes ADD COLUMN always_online INTEGER DEFAULT 0
+      `).run();
+    } catch (error) {
+      // 字段可能已存在，忽略错误
+      console.log('nodes表always_online字段已存在或添加失败:', error);
     }
     
     return c.json({ 
@@ -791,11 +804,11 @@ system.post('/cron/update-stats', async (c) => {
     const now = new Date();
     const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
 
-    // 1. 检查并更新离线节点（10分钟未上报）
+    // 1. 检查并更新离线节点（10分钟未上报，保留原有的连接数和带宽信息）
     const offlineResult = await c.env.DB.prepare(
       `UPDATE nodes 
-       SET status = 'offline', connection_count = 0, current_bandwidth = 0
-       WHERE status = 'online' AND last_report_at < ?`
+       SET status = 'offline'
+       WHERE status = 'online' AND is_enabled = 1 AND always_online != 1 AND last_report_at < ?`
     ).bind(tenMinutesAgo.toISOString()).run();
 
     console.log(`[定时任务] 更新了 ${offlineResult.meta.changes} 个离线节点`);

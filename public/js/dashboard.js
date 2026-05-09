@@ -195,8 +195,20 @@ window.editNode = (nodeId) => {
   document.getElementById('dashboard-reset-cycle').value = node.reset_cycle || '';
   document.getElementById('dashboard-allow-relay').checked = node.allow_relay;
   
-  // 处理节点审核状态（简化逻辑）
+  // 处理总是在线选项
+  var alwaysOnlineCheckbox = document.getElementById('dashboard-always-online');
+  if (alwaysOnlineCheckbox) {
+    alwaysOnlineCheckbox.checked = node.always_online === 1;
+  }
+  
+  // 处理节点审核状态
   const isEnabledCheckbox = document.getElementById('dashboard-is-enabled');
+  const isApprovedCheckbox = document.getElementById('dashboard-is-approved');
+  
+  // 设置审核状态显示：is_enabled不为-1表示已审核
+  if (isApprovedCheckbox) {
+    isApprovedCheckbox.checked = node.is_enabled !== -1;
+  }
   
   // 用户可以自由设置启用状态
   isEnabledCheckbox.checked = node.is_enabled === 1;
@@ -311,9 +323,20 @@ window.handleNodeSubmit = async (e) => {
     max_traffic: parseFloat(document.getElementById('dashboard-max-traffic').value) || 0,
     reset_cycle: parseInt(document.getElementById('dashboard-reset-cycle').value) || 0,
     allow_relay: document.getElementById('dashboard-allow-relay').checked ? 1 : 0,
+    always_online: document.getElementById('dashboard-always-online') ? (document.getElementById('dashboard-always-online').checked ? 1 : 0) : 0,
     tags: document.getElementById('dashboard-tags').value.trim(),
     notes: document.getElementById('dashboard-notes').value,
-    valid_until: document.getElementById('dashboard-valid-until')?.value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    valid_until: document.getElementById('dashboard-valid-until')?.value || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    // 流量控制字段
+    current_network_limit_mbps: parseFloat(document.getElementById('dashboard-current-network-limit')?.value) || 0,
+    other_network_limit_mbps: parseFloat(document.getElementById('dashboard-other-network-limit')?.value) || 0,
+    enable_traffic_stats: document.getElementById('dashboard-enable-traffic-stats')?.checked ? 1 : 0,
+    traffic_reset_by_days: document.getElementById('dashboard-traffic-reset-type')?.value === 'days' ? (parseInt(document.getElementById('dashboard-traffic-reset-value')?.value) || 0) : 0,
+    traffic_reset_day: document.getElementById('dashboard-traffic-reset-type')?.value === 'monthly' ? (parseInt(document.getElementById('dashboard-traffic-reset-value')?.value) || 1) : 0,
+    // 上报设置字段
+    report_urls: document.getElementById('dashboard-report-urls')?.value || '',
+    report_secret: document.getElementById('dashboard-report-secret')?.value || '',
+    report_interval_minutes: parseInt(document.getElementById('dashboard-report-interval')?.value) || 5,
   };
   
   // 只有在编辑现有节点时才发送is_enabled字段

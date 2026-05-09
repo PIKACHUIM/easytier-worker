@@ -11,7 +11,8 @@
       "DOM.Iterable"
     ],
     "types": [
-      "vite/client"
+      "vite/client",
+      "@cloudflare/workers-types"
     ],
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",

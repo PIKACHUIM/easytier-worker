@@ -46,6 +46,23 @@ CREATE TABLE IF NOT EXISTS nodes (
   network_count INTEGER DEFAULT 0, -- 当前网络数（由客户端上报）
   relay_bandwidth REAL DEFAULT 0, -- 中转带宽（Mbps，由客户端上报）
   current_network_only INTEGER DEFAULT 0, -- 是否仅允许当前网络（由客户端上报）
+  always_online INTEGER DEFAULT 0, -- 总是在线：0-否，1-是（勾选后节点视为永远在线，不会被定时任务标记为离线）
+  -- 流量控制与上报相关字段
+  current_network_limit_mbps REAL DEFAULT 0, -- 当前网络限速（Mbps）
+  other_network_limit_mbps REAL DEFAULT 0, -- 其他网络限速（Mbps）
+  enable_traffic_stats INTEGER DEFAULT 1, -- 是否启用流量统计
+  traffic_reset_by_days INTEGER DEFAULT 0, -- 按天数重置（0=不使用）
+  traffic_reset_day INTEGER DEFAULT 0, -- 按月重置日期（1-31）
+  report_urls TEXT DEFAULT '', -- 上报地址（逗号分隔）
+  report_secret TEXT DEFAULT '', -- 上报密钥
+  report_interval_minutes INTEGER DEFAULT 5, -- 上报间隔（分钟）
+  is_limited INTEGER DEFAULT 0, -- 是否被策略限速
+  limited_bandwidth REAL DEFAULT 0, -- 当前策略限速带宽（Mbps）
+  active_policies TEXT DEFAULT '[]', -- 激活的策略列表（JSON）
+  public_ip TEXT DEFAULT '', -- 公网IP
+  easytier_version TEXT DEFAULT '', -- 客户端版本
+  uptime_seconds INTEGER DEFAULT 0, -- 运行时长
+  monitor_latency_ms REAL DEFAULT 0, -- 监控延迟
   FOREIGN KEY (user_email) REFERENCES users(email)
 );
 

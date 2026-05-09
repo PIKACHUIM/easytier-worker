@@ -88,13 +88,19 @@ async function loadNodes(apiEndpoint, mode, cacheKey, colSpan, customEmptyMessag
             } else {
                 // 降级：直接生成简单卡片
                 cardView.innerHTML = data.nodes.map(function(node) {
-                    var isOnline = node.status === 'online';
+                    var isOnline = node.status === 'online' || node.always_online === 1;
                     var statusClass = isOnline ? 'online-card' : 'offline-card';
                     var statusText = isOnline ? '在线' : '离线';
                     var bw = Number(node.current_bandwidth || 0).toFixed(1);
                     var maxBw = Number(node.max_bandwidth || 0);
                     var conn = Number(node.connection_count || 0);
                     var maxConn = Number(node.max_connections || 0);
+                    var notesHtml = (node.notes && node.notes.trim())
+                        ? '<div style="padding:6px 8px;border-top:1px solid var(--bg-glass-border,#eee);display:flex;align-items:flex-start;gap:6px;">' +
+                            '<span style="font-size:11px;color:#999;flex-shrink:0;">💬</span>' +
+                            '<span style="font-size:11px;color:#666;line-height:1.5;word-break:break-all;">' + escapeHtml(node.notes) + '</span>' +
+                          '</div>'
+                        : '';
                     return '<div class="node-card-view ' + statusClass + '">' +
                         '<div class="node-card-header">' +
                             '<div class="node-card-name">' + escapeHtml(node.node_name) + '</div>' +
@@ -104,6 +110,7 @@ async function loadNodes(apiEndpoint, mode, cacheKey, colSpan, customEmptyMessag
                             '<div class="node-metric"><div class="node-metric-label">带宽</div><div class="node-metric-value">' + bw + '/' + maxBw + '</div></div>' +
                             '<div class="node-metric"><div class="node-metric-label">连接</div><div class="node-metric-value">' + conn + '/' + maxConn + '</div></div>' +
                         '</div>' +
+                        notesHtml +
                     '</div>';
                 }).join('');
             }
