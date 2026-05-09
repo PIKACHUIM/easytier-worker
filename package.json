@@ -7,6 +7,7 @@
     "dev-cf:test": "",
     "dev-eo": "",
     "build": "vite build",
+    "build-eo": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "preview": "npm run build && wrangler dev",
     "deploy-cf": "npm run build && wrangler deploy",
