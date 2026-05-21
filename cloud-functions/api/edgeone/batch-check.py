@@ -14,7 +14,8 @@ EdgeOne 云函数 - 批量节点检测（带连接数获取）
       EasyTierCore/easytier/src/proto/peer_rpc.proto
       EasyTierCore/easytier/src/proto/api_instance.proto
 
-EdgeOne Pages Python 云函数入口：on_fetch
+EdgeOne Pages Python 云函数入口：class handler(BaseHTTPRequestHandler)
+路由：POST /api/edgeone/batch-check
 """
 import json
 import os
@@ -501,62 +502,23 @@ def check_node_via_easytier(server, network_name, network_secret, timeout_sec=15
 
 
 # ============================================================
-# EdgeOne 云函数接口
+# EdgeOne Pages Python 云函数接口
+# 官方文档：https://pages.edgeone.ai/document/python
+# 入口规范：class handler(BaseHTTPRequestHandler)
+# 路由规则：文件路径 → URL 路径
+#   cloud-functions/api/edgeone/batch-check.py → /api/edgeone/batch-check
 # ============================================================
 
-def _make_response(response, data, status_code=200):
-    """
-    安全地构造响应，兼容多种 EdgeOne Python 运行时 API 形式
-    """
-    json_str = json.dumps(data, ensure_ascii=False)
-
-    # 方式1: response.json(data) / response.status(code).json(data)
-    try:
-        if status_code == 200:
-            return response.json(data)
-        else:
-            return response.status(status_code).json(data)
-    except Exception:
-        pass
-
-    # 方式2: response(body, status=code, headers={...})
-    try:
-        return response(json_str, status=status_code, headers={'Content-Type': 'application/json'})
-    except Exception:
-        pass
-
-    # 方式3: 返回 dict
-    try:
-        return {
-            'statusCode': status_code,
-            'headers': {'Content-Type': 'application/json'},
-            'body': json_str,
-        }
-    except Exception:
-        pass
-
-    return json_str
+from http.server import BaseHTTPRequestHandler
 
 
-def verify_api_key(request):
-    """验证 API Key"""
+def _verify_api_key(headers):
+    """验证 API Key（如未配置 API_KEY 环境变量则不鉴权）"""
     try:
         api_key = os.environ.get('API_KEY', '')
         if not api_key:
             return True
-
-        request_key = ''
-        try:
-            request_key = request.headers.get('x-api-key', '')
-        except Exception:
-            try:
-                request_key = request.headers.get('X-Api-Key', '')
-            except Exception:
-                pass
-
-        if not request_key:
-            return False
-
+        request_key = headers.get('x-api-key') or headers.get('X-Api-Key') or ''
         return request_key == api_key
     except Exception:
         return True
@@ -576,7 +538,7 @@ def make_check_result(is_online=False, connection_count=0, latency_ms=-1,
     return result
 
 
-async def on_fetch(request, response):
+class handler(BaseHTTPRequestHandler):
     """
     EdgeOne 云函数入口 - 批量节点检测
 
@@ -603,91 +565,90 @@ async def on_fetch(request, response):
         ]
     }
     """
-    try:
-        # API Key 鉴权
-        if not verify_api_key(request):
-            return _make_response(response, {'error': '未授权：API Key 验证失败'}, 401)
 
-        # 解析请求体 - 尝试多种方式获取 body
-        body_str = '{}'
+    def _send_json(self, status_code, data):
+        body = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, x-api-key')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self._send_json(200, {'ok': True})
+
+    def do_POST(self):
         try:
-            if hasattr(request, 'body') and request.body:
-                body_str = request.body if isinstance(request.body, str) else request.body.decode('utf-8')
-            elif hasattr(request, 'text'):
-                body_str = request.text() if callable(request.text) else request.text
-            elif hasattr(request, 'json'):
-                body = request.json() if callable(request.json) else request.json
-                if body:
-                    # 已经是 dict 了
-                    pass
-        except Exception:
-            pass
+            # API Key 鉴权
+            if not _verify_api_key(self.headers):
+                self._send_json(401, {'error': '未授权：API Key 验证失败'})
+                return
 
-        try:
-            if isinstance(body_str, str):
-                body = json.loads(body_str)
-            elif isinstance(body_str, dict):
-                body = body_str
-            else:
-                body = {}
-        except json.JSONDecodeError:
-            return _make_response(response, {'error': '无效的 JSON 请求体'}, 400)
-
-        nodes = body.get('nodes', [])
-
-        if not nodes or not isinstance(nodes, list):
-            return _make_response(response, {'error': '缺少 nodes 字段或格式不正确'}, 400)
-
-        if len(nodes) == 0:
-            return _make_response(response, {'error': '节点列表不能为空'}, 400)
-
-        if len(nodes) > 20:
-            return _make_response(response, {'error': '单次批量检测最多支持 20 个节点'}, 400)
-
-        # 验证每个节点的必填参数
-        for i, node in enumerate(nodes):
-            if not node.get('server') or not node.get('network_name') or not node.get('network_secret'):
-                return _make_response(response, {
-                    'error': f'第 {i + 1} 个节点缺少必填参数 (server, network_name, network_secret)'
-                }, 400)
-
-        # 获取超时配置
-        timeout_sec = int(os.environ.get('CHECK_TIMEOUT', '15'))
-
-        # 逐个检测节点（通过 EasyTier 协议）
-        results = []
-        for node in nodes:
-            server = node['server']
-            network_name = node['network_name']
-            network_secret = node['network_secret']
+            # 读取请求体
+            content_length = int(self.headers.get('Content-Length', 0))
+            raw_body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
 
             try:
-                is_online, conn_count, latency_ms, error = check_node_via_easytier(
-                    server, network_name, network_secret, timeout_sec
-                )
+                body = json.loads(raw_body) if raw_body else {}
+            except json.JSONDecodeError:
+                self._send_json(400, {'error': '无效的 JSON 请求体'})
+                return
 
-                result = make_check_result(
-                    is_online=is_online,
-                    connection_count=conn_count,
-                    latency_ms=latency_ms,
-                    error=error
-                )
-            except Exception as e:
-                result = make_check_result(error=f'检测异常: {str(e)}')
+            nodes = body.get('nodes', [])
 
-            results.append(result)
+            if not isinstance(nodes, list) or len(nodes) == 0:
+                self._send_json(400, {'error': '缺少 nodes 字段或节点列表为空'})
+                return
 
-        return _make_response(response, {'results': results})
+            if len(nodes) > 20:
+                self._send_json(400, {'error': '单次批量检测最多支持 20 个节点'})
+                return
 
-    except Exception as e:
-        # 顶层异常捕获
-        error_detail = {
-            'error': f'云函数执行异常: {str(e)}',
-            'error_type': type(e).__name__,
-            'traceback': traceback.format_exc(),
-            'python_version': sys.version,
-        }
-        try:
-            return _make_response(response, error_detail, 500)
-        except Exception:
-            return json.dumps(error_detail, ensure_ascii=False)
+            # 验证每个节点的必填参数
+            for i, node in enumerate(nodes):
+                if not node.get('server') or not node.get('network_name') or not node.get('network_secret'):
+                    self._send_json(400, {
+                        'error': f'第 {i + 1} 个节点缺少必填参数 (server, network_name, network_secret)'
+                    })
+                    return
+
+            # 获取超时配置
+            timeout_sec = int(os.environ.get('CHECK_TIMEOUT', '15'))
+
+            # 逐个检测节点（通过 EasyTier 协议）
+            results = []
+            for node in nodes:
+                try:
+                    is_online, conn_count, latency_ms, error = check_node_via_easytier(
+                        node['server'], node['network_name'], node['network_secret'], timeout_sec
+                    )
+                    results.append(make_check_result(
+                        is_online=is_online,
+                        connection_count=conn_count,
+                        latency_ms=latency_ms,
+                        error=error,
+                    ))
+                except Exception as e:
+                    results.append(make_check_result(error=f'检测异常: {type(e).__name__}: {str(e)}'))
+
+            self._send_json(200, {'results': results})
+
+        except Exception as e:
+            self._send_json(500, {
+                'error': f'云函数执行异常: {type(e).__name__}: {str(e)}',
+                'traceback': traceback.format_exc(),
+                'python_version': sys.version,
+            })
+
+    # 同时允许 GET 方式（用于浏览器快速调试，仅返回提示）
+    def do_GET(self):
+        self._send_json(405, {
+            'error': '请使用 POST 方法',
+            'usage': 'POST /api/edgeone/batch-check  body={"nodes":[{"server":"tcp://IP:PORT","network_name":"...","network_secret":"..."}]}',
+        })
+
+    def log_message(self, format, *args):
+        return
