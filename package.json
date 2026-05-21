@@ -2,18 +2,19 @@
   "name": "easytier-worker",
   "type": "module",
   "scripts": {
-    "dev": "npm run build && vite",
+    "predev": "vite build",
+    "dev": "vite",
     "dev-cf": "",
     "dev-cf:test": "",
-    "dev-eo": "",
+    "dev-eo": "edgeone pages dev",
     "build": "vite build",
     "build-eo": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "preview": "npm run build && wrangler dev",
     "deploy-cf": "npm run build && wrangler deploy",
     "deploy-cf:test": "npm run build && wrangler deploy -c .\\wrangler.test.jsonc",
-    "deploy-py": "npx edgeone-pages-mcp-fullstack --directory ./py-functions",
-    "deploy-eo": "npx edgeone-pages-mcp-fullstack --directory ./py-functions",
+    "deploy-py": "npx edgeone-pages-mcp-fullstack --directory cloud-functions",
+    "deploy-eo": "npx edgeone-pages-mcp-fullstack --directory cloud-functions",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
