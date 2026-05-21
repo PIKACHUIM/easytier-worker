@@ -40,3 +40,4 @@ uptime.db-shm
 uptime.db-wal
 uptime.db
 .codebuddy
+test_easytier_check.py
