@@ -4,8 +4,8 @@
   "scripts": {
     "predev": "vite build",
     "dev": "vite",
-    "dev-cf": "",
-    "dev-cf:test": "",
+    "dev-cf": "wrangler dev",
+    "dev-cf:test": "wrangler dev -c wrangler.test.jsonc",
     "dev-eo": "edgeone pages dev",
     "build": "vite build",
     "build-eo": "vite build",
