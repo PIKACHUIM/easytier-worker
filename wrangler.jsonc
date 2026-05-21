@@ -16,11 +16,12 @@
     "SITE_NAME": "EasyTier 节点管理系统",
     "SITE_URL": "https://your-domain.workers.dev",
 
-    // EdgeOne 云函数检测配置（可选）
-    // 配置后，健康检测将优先调用 EdgeOne 云函数接口检测节点状态
-    // "EDGEONE_CHECK_API": "https://your-app.edgeone.app/api/edgeone",
-    // "EDGEONE_CHECK_TIMEOUT": "30",
-    // "EDGEONE_CHECK_API_KEY": "your-api-key-for-edgeone"}
+    // EdgeOne 云函数检测配置（强烈推荐）
+    // 配置后，健康检测将通过 EdgeOne Pages Python 云函数（EasyTier 协议握手 + RPC）检测节点状态和连接数。
+    // 不配置则跳过主动检测，节点状态完全依赖：① 节点主动上报 ② 监控节点上报 ③ 10 分钟未上报兜底
+    "EDGEONE_CHECK_API": "https://eo-etw.pika.net.cn/api/edgeone",
+    "EDGEONE_CHECK_TIMEOUT": "30",
+    // "EDGEONE_CHECK_API_KEY": "your-api-key-for-edgeone",
     "ENABLE_EMAIL_VERIFICATION": true
   },
 

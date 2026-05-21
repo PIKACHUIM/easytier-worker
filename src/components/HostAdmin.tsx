@@ -73,6 +73,44 @@ function HostAdmin() {
                                     <small>用于生成邮件中的链接，例如: https://yourdomain.com，后面不包含"/"或"?"</small>
                                 </div>
 
+                                {/* 节点检测配置 */}
+                                <h2 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 32px 0 20px; padding-bottom: 16px; border-bottom: 1px solid var(--bg-glass-border); display: flex; align-items: center; gap: 8px;">
+                                    <span style="display: inline-block; width: 4px; height: 18px; background: linear-gradient(180deg, var(--primary), var(--primary-light)); border-radius: 9999px;"></span>
+                                    节点检测配置
+                                </h2>
+                                <div className="form-group">
+                                    <label>检测模式</label>
+                                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+                                        <label style="display: flex; align-items: flex-start; gap: 10px; font-weight: normal; cursor: pointer;">
+                                            <input type="radio" name="node-check-mode" value="internal" id="node-check-mode-internal" style="margin-top: 4px;"/>
+                                            <span>
+                                                <strong>内置 TCP 可达性检测</strong>
+                                                <br/><small style="color: var(--text-muted);">仅判断节点端口是否可连，无法获取真实连接数；UDP 节点不支持。</small>
+                                            </span>
+                                        </label>
+                                        <label style="display: flex; align-items: flex-start; gap: 10px; font-weight: normal; cursor: pointer;">
+                                            <input type="radio" name="node-check-mode" value="local" id="node-check-mode-local" style="margin-top: 4px;"/>
+                                            <span>
+                                                <strong>本机 Python 脚本检测（默认）</strong>
+                                                <br/><small style="color: var(--text-muted);">通过本站点 <code>/api/edgeone/check</code> 调用本机 Python 脚本，进行 EasyTier 协议握手并获取连接数。需要本机 EdgeOne Pages 已正确部署 Python 函数。</small>
+                                            </span>
+                                        </label>
+                                        <label style="display: flex; align-items: flex-start; gap: 10px; font-weight: normal; cursor: pointer;">
+                                            <input type="radio" name="node-check-mode" value="remote" id="node-check-mode-remote" style="margin-top: 4px;"/>
+                                            <span>
+                                                <strong>指定远程地址检测</strong>
+                                                <br/><small style="color: var(--text-muted);">将检测请求转发到指定的远程 EdgeOne 站点（自动调用其 <code>/api/edgeone/check</code>）。</small>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div className="form-group" id="node-check-remote-url-group">
+                                    <label htmlFor="node-check-remote-url">远程检测站点地址</label>
+                                    <input type="url" id="node-check-remote-url" name="node-check-remote-url"
+                                           placeholder="https://eo-xxx.example.com"/>
+                                    <small>仅"指定远程地址检测"模式下生效。填写远程站点根地址（不含 <code>/api/edgeone</code>），例如 <code>https://eo-etw.pika.net.cn</code>。</small>
+                                </div>
+
                                 {/* 通知服务配置 */}
                                 <h2 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 32px 0 20px; padding-bottom: 16px; border-bottom: 1px solid var(--bg-glass-border); display: flex; align-items: center; gap: 8px;">
                                     <span style="display: inline-block; width: 4px; height: 18px; background: linear-gradient(180deg, var(--primary), var(--primary-light)); border-radius: 9999px;"></span>

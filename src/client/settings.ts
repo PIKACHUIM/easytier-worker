@@ -131,6 +131,17 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
     return emailRegex.test(email);
   }
   
+  // 节点检测模式切换：仅 remote 模式下显示远程 URL 输入框
+  function updateRemoteUrlVisibility() {
+    const remoteRadio = document.getElementById('node-check-mode-remote') as HTMLInputElement | null;
+    const group = document.getElementById('node-check-remote-url-group') as HTMLElement | null;
+    if (!group) return;
+    group.style.display = remoteRadio?.checked ? '' : 'none';
+  }
+  document.querySelectorAll('input[name="node-check-mode"]').forEach(el => {
+    el.addEventListener('change', updateRemoteUrlVisibility);
+  });
+
   // 加载系统设置
   async function loadSettings() {
     try {
@@ -162,6 +173,18 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
       (document.getElementById('telegram-bot-id') as HTMLInputElement).value = settings.telegram_bot_id || '';
       (document.getElementById('wxpusher-app-token') as HTMLInputElement).value = settings.wxpusher_app_token || '';
       (document.getElementById('wxpusher-app-id') as HTMLInputElement).value = settings.wxpusher_app_id || '';
+
+      // 节点检测模式：默认 local
+      const checkMode = (settings.node_check_mode || 'local').trim();
+      const radioInternal = document.getElementById('node-check-mode-internal') as HTMLInputElement | null;
+      const radioLocal = document.getElementById('node-check-mode-local') as HTMLInputElement | null;
+      const radioRemote = document.getElementById('node-check-mode-remote') as HTMLInputElement | null;
+      if (radioInternal) radioInternal.checked = (checkMode === 'internal');
+      if (radioLocal) radioLocal.checked = (checkMode === 'local' || (checkMode !== 'internal' && checkMode !== 'remote'));
+      if (radioRemote) radioRemote.checked = (checkMode === 'remote');
+      const remoteUrlInput = document.getElementById('node-check-remote-url') as HTMLInputElement | null;
+      if (remoteUrlInput) remoteUrlInput.value = settings.node_check_remote_url || '';
+      updateRemoteUrlVisibility();
     } catch (error) {
       console.error('加载设置失败:', error);
       messageDiv.innerHTML = '<p class="error">加载设置失败</p>';
@@ -181,7 +204,9 @@ const settingsForm = document.getElementById('settings-form') as HTMLFormElement
       telegram_bot_token: (document.getElementById('telegram-bot-token') as HTMLInputElement).value,
       telegram_bot_id: (document.getElementById('telegram-bot-id') as HTMLInputElement).value,
       wxpusher_app_token: (document.getElementById('wxpusher-app-token') as HTMLInputElement).value,
-      wxpusher_app_id: (document.getElementById('wxpusher-app-id') as HTMLInputElement).value
+      wxpusher_app_id: (document.getElementById('wxpusher-app-id') as HTMLInputElement).value,
+      node_check_mode: (document.querySelector('input[name="node-check-mode"]:checked') as HTMLInputElement | null)?.value || 'local',
+      node_check_remote_url: (document.getElementById('node-check-remote-url') as HTMLInputElement).value.trim()
     };
     
     try {

@@ -6,7 +6,7 @@ import {
     calculateBandwidthPerUser,
     verifyJWT
 } from '../utils';
-import {isEdgeOneCheckEnabled, checkNodeViaEdgeOne, batchCheckViaEdgeOne, verifyEdgeOneApiKey, type EdgeOneCheckResult} from '../edgeone';
+import {isEdgeOneCheckEnabled, checkNodeViaEdgeOne, batchCheckViaEdgeOne, verifyEdgeOneApiKey, checkNodeViaTcp, batchCheckViaTcp, type EdgeOneCheckResult} from '../edgeone';
 
 const api = new Hono<{ Bindings: Env }>();
 
@@ -753,43 +753,10 @@ api.get('/edgeone/check', async (c) => {
         return c.json(result);
     }
 
-    // 否则使用本地 TCP 检测
-    try {
-        // 解析连接地址
-        const urlMatch = server.match(/^(tcp|ws|wss):\/\/(.+):(\d+)$/i);
-        if (!urlMatch) {
-            return c.json({error: '无效的连接地址格式，应为 tcp://IP:PORT 或 ws://IP:PORT 或 wss://IP:PORT'}, 400);
-        }
-
-        const [, connType, ip, portStr] = urlMatch;
-        const port = parseInt(portStr, 10);
-
-        if (isNaN(port) || port < 1 || port > 65535) {
-            return c.json({error: '无效的端口号'}, 400);
-        }
-
-        // 使用 TCP 连接检测（复用 index.tsx 中的逻辑）
-        const isOnline = await checkTcpConnectionLocal(ip, port, 10000);
-        const checkTime = new Date().toISOString();
-
-        const result: EdgeOneCheckResult = {
-            is_online: isOnline,
-            connection_count: 0, // TCP 检测无法获取连接数
-            latency_ms: isOnline ? 0 : -1,
-            check_time: checkTime,
-            error: isOnline ? undefined : '连接失败',
-        };
-
-        return c.json(result);
-    } catch (error: any) {
-        return c.json({
-            is_online: false,
-            connection_count: 0,
-            latency_ms: -1,
-            check_time: new Date().toISOString(),
-            error: error.message || '检测失败',
-        }, 500);
-    }
+    // 未配置 EdgeOne API：本地无法进行 EasyTier 协议握手检测，降级为内置 TCP 可达性检测
+    // 仅能判断节点端口是否可连，无法获取连接数（connection_count 始终为 0）
+    const fallback = await checkNodeViaTcp(server);
+    return c.json(fallback);
 });
 
 // 批量检测
@@ -823,51 +790,8 @@ api.post('/edgeone/batch-check', async (c) => {
             return c.json({results});
         }
 
-        // 否则使用本地 TCP 逐个检测
-        const results: EdgeOneCheckResult[] = [];
-        const batchSize = 5;
-
-        for (let i = 0; i < nodes.length; i += batchSize) {
-            const batch = nodes.slice(i, i + batchSize);
-            const batchResults = await Promise.all(
-                batch.map(async (node: any) => {
-                    try {
-                        const urlMatch = node.server.match(/^(tcp|ws|wss):\/\/(.+):(\d+)$/i);
-                        if (!urlMatch) {
-                            return {
-                                is_online: false,
-                                connection_count: 0,
-                                latency_ms: -1,
-                                check_time: new Date().toISOString(),
-                                error: '无效的连接地址格式',
-                            } as EdgeOneCheckResult;
-                        }
-
-                        const [, , ip, portStr] = urlMatch;
-                        const port = parseInt(portStr, 10);
-                        const isOnline = await checkTcpConnectionLocal(ip, port, 10000);
-
-                        return {
-                            is_online: isOnline,
-                            connection_count: 0,
-                            latency_ms: isOnline ? 0 : -1,
-                            check_time: new Date().toISOString(),
-                            error: isOnline ? undefined : '连接失败',
-                        } as EdgeOneCheckResult;
-                    } catch (error: any) {
-                        return {
-                            is_online: false,
-                            connection_count: 0,
-                            latency_ms: -1,
-                            check_time: new Date().toISOString(),
-                            error: error.message || '检测失败',
-                        } as EdgeOneCheckResult;
-                    }
-                })
-            );
-            results.push(...batchResults);
-        }
-
+        // 未配置 EdgeOne API：降级为内置 TCP 可达性检测（并发 5个）
+        const results = await batchCheckViaTcp(nodes);
         return c.json({results});
     } catch (error: any) {
         return c.json({error: '批量检测失败', detail: error.message}, 500);
@@ -879,38 +803,9 @@ api.get('/edgeone/health', async (c) => {
     return c.json({
         status: 'ok',
         service: 'edgeone-check',
-        mode: isEdgeOneCheckEnabled(c.env) ? 'remote' : 'local',
+        mode: isEdgeOneCheckEnabled(c.env) ? 'remote' : 'internal-tcp-fallback',
         timestamp: new Date().toISOString(),
     });
 });
-
-// 本地 TCP 连接检测辅助函数（一体化模式下使用）
-async function checkTcpConnectionLocal(ip: string, port: number, timeoutMs: number = 5000): Promise<boolean> {
-    try {
-        // 动态导入 cloudflare:sockets（仅在 Cloudflare Workers 环境可用）
-        const {connect} = await import('cloudflare:sockets');
-        const socket = connect({hostname: ip, port: port});
-
-        const timeoutPromise = new Promise<boolean>((_, reject) => {
-            setTimeout(() => reject(new Error('timeout')), timeoutMs);
-        });
-
-        const connectPromise = (async () => {
-            try {
-                const writer = socket.writable.getWriter();
-                await writer.close();
-                return true;
-            } catch {
-                return false;
-            }
-        })();
-
-        const result = await Promise.race([connectPromise, timeoutPromise]);
-        try { socket.close(); } catch {}
-        return result as boolean;
-    } catch {
-        return false;
-    }
-}
 
 export default api;
