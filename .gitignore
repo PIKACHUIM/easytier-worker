@@ -42,3 +42,9 @@ uptime.db
 .codebuddy
 test_easytier_check.py
 .edgeone
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  
