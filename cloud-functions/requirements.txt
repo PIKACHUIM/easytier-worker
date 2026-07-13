@@ -1,0 +1,4 @@
+# EdgeOne Pages Python 云函数依赖
+# 用于 batch-check.py / check.py 的 AES-GCM 解密能力（加密节点的连接数获取）
+# 若运行环境无法安装 cryptography，模块会 fallback：加密节点 connection_count=0
+cryptography>=41.0.0

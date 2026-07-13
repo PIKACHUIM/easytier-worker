@@ -41,6 +41,13 @@ PACKET_TYPE_HANDSHAKE = 2
 PACKET_TYPE_RPC_REQ = 8
 PACKET_TYPE_RPC_RESP = 9
 
+# PeerManagerHeader.flags 位（参考 packet_def.rs::PeerManagerHeaderFlags）
+PEER_MANAGER_FLAG_ENCRYPTED = 0x01
+
+# AES-GCM 尾部预留长度：tag(16) + nonce(12)
+# 参考 packet_def.rs::AesGcmTail
+AES_GCM_ENCRYPTION_RESERVED = 28
+
 # TCP 帧头大小
 TCP_TUNNEL_HEADER_SIZE = 4  # u32 LE (len)
 # PeerManagerHeader 大小: from_peer_id(4) + to_peer_id(4) + packet_type(1) + flags(1) + forward_counter(1) + reserved(1) + len(4) = 16
@@ -125,6 +132,20 @@ def decode_protobuf_fields(data):
     return fields
 
 
+def get_pb_field(fields, field_number, wire_type=None):
+    """从 decode_protobuf_fields 的结果中取第一个匹配字段的值（无则 None）"""
+    for fn, wt, val in fields:
+        if fn == field_number and (wire_type is None or wt == wire_type):
+            return val
+    return None
+
+
+def get_pb_fields_all(fields, field_number, wire_type=None):
+    """从 decode_protobuf_fields 的结果中取所有匹配字段的值列表"""
+    return [val for fn, wt, val in fields
+            if fn == field_number and (wire_type is None or wt == wire_type)]
+
+
 # ============================================================
 # EasyTier 协议实现
 # ============================================================
@@ -206,6 +227,209 @@ def compute_network_secret_digest(network_name, network_secret):
     return bytes(digest)
 
 
+def derive_aes_128_key(network_secret):
+    """
+    与 Rust EasyTier global_ctx.rs::get_128_key 完全一致：
+        let mut hasher = DefaultHasher::new();         // SipHash-1-3, k0=k1=0
+        hasher.write(secret.as_bytes());
+        key[0..8]  = hasher.finish().to_be_bytes();
+        hasher.write(&key[0..8]);
+        key[8..16] = hasher.finish().to_be_bytes();
+        return key
+    注意：与 digest 不同，这里不使用 network_name。
+    """
+    hasher = _SipHasher13()
+    hasher.write(network_secret.encode('utf-8'))
+    key = bytearray(16)
+    h1 = hasher.finish()
+    struct.pack_into('>Q', key, 0, h1)
+    hasher.write(bytes(key[0:8]))
+    h2 = hasher.finish()
+    struct.pack_into('>Q', key, 8, h2)
+    return bytes(key)
+
+
+def derive_aes_256_key(network_secret):
+    """与 Rust global_ctx.rs::get_256_key 完全一致。"""
+    hasher = _SipHasher13()
+    hasher.write(network_secret.encode('utf-8'))
+    hasher.write(b"easytier-256bit-key")
+    key = bytearray(32)
+    for i in range(4):
+        chunk_start = i * 8
+        hasher.write(bytes(key[0:chunk_start]))
+        hasher.write(bytes([i]))
+        h = hasher.finish()
+        struct.pack_into('>Q', key, chunk_start, h)
+    return bytes(key)
+
+
+# ============================================================
+# AES-GCM 解密（可选，需要 cryptography 库）
+# ============================================================
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    _HAS_AESGCM = True
+except Exception:
+    AESGCM = None
+    _HAS_AESGCM = False
+
+
+def try_decrypt_payload(encrypted_payload, network_secret):
+    """
+    尝试解密一帧加密 payload（packet_type=8 且 flags=ENCRYPTED 时的 payload）。
+
+    布局（参考 aes_gcm.rs::decrypt 与 AesGcmTail）：
+        [ ciphertext (text_len) ][ tag(16) ][ nonce(12) ]
+        text_len = payload_len - 28
+    AAD 为空。
+
+    返回 (success, plaintext_or_None)
+    """
+    if not _HAS_AESGCM:
+        return False, None
+    if len(encrypted_payload) < AES_GCM_ENCRYPTION_RESERVED:
+        return False, None
+
+    text_len = len(encrypted_payload) - AES_GCM_ENCRYPTION_RESERVED
+    ciphertext = encrypted_payload[:text_len]
+    tag = encrypted_payload[text_len:text_len + 16]
+    nonce = encrypted_payload[text_len + 16:text_len + 16 + 12]
+    ct_plus_tag = ciphertext + tag
+
+    # 优先 AES-128-GCM（默认算法）
+    try:
+        aes = AESGCM(derive_aes_128_key(network_secret))
+        return True, aes.decrypt(nonce, ct_plus_tag, None)
+    except Exception:
+        pass
+    # 回退 AES-256-GCM
+    try:
+        aes = AESGCM(derive_aes_256_key(network_secret))
+        return True, aes.decrypt(nonce, ct_plus_tag, None)
+    except Exception:
+        pass
+    return False, None
+
+
+# ============================================================
+# OspfRouteRpc.SyncRouteInfoRequest 解析（统计连接数）
+# 参考 EasyTierCore/easytier/src/proto/peer_rpc.proto
+# ============================================================
+
+def parse_rpc_packet_body(rpc_payload):
+    """
+    解析 RpcPacket（common.proto::RpcPacket），返回 dict:
+        {service_name, method_index, body, is_request, from_peer, to_peer}
+    """
+    fields = decode_protobuf_fields(rpc_payload)
+    out = {
+        'from_peer': get_pb_field(fields, 1, 0) or 0,
+        'to_peer': get_pb_field(fields, 2, 0) or 0,
+        'transaction_id': get_pb_field(fields, 3, 0) or 0,
+        'descriptor': get_pb_field(fields, 4, 2) or b'',
+        'body': get_pb_field(fields, 5, 2) or b'',
+        'is_request': bool(get_pb_field(fields, 6, 0) or 0),
+        'service_name': '',
+        'method_index': 0,
+    }
+    if out['descriptor']:
+        desc_fields = decode_protobuf_fields(out['descriptor'])
+        sn = get_pb_field(desc_fields, 3, 2)
+        if sn:
+            try:
+                out['service_name'] = sn.decode('utf-8', errors='replace')
+            except Exception:
+                out['service_name'] = ''
+        out['method_index'] = get_pb_field(desc_fields, 4, 0) or 0
+    return out
+
+
+def parse_sync_route_info_request(body):
+    """
+    body 是 RpcPacket.body，即 RpcRequest 整个消息。
+    取 RpcRequest.request (field 2) 后再解析为 SyncRouteInfoRequest。
+
+    返回 dict: {my_peer_id, peer_ids: set, conn_map: {peer_id: [neighbor_peer_ids]}}
+    """
+    rpc_req_fields = decode_protobuf_fields(body)
+    request_bytes = get_pb_field(rpc_req_fields, 2, 2) or b''
+    if not request_bytes:
+        request_bytes = body  # 极端容错
+
+    sri_fields = decode_protobuf_fields(request_bytes)
+    out = {
+        'my_peer_id': get_pb_field(sri_fields, 1, 0) or 0,
+        'peer_ids': set(),
+        'conn_map': {},
+    }
+
+    # field 4: peer_infos (RoutePeerInfos) -> field 1 items repeated RoutePeerInfo
+    peer_infos_blob = get_pb_field(sri_fields, 4, 2)
+    peer_id_order = []  # 用于 bitmap 解析时按 RoutePeerInfo 出现顺序对照
+    if peer_infos_blob:
+        rpi_outer = decode_protobuf_fields(peer_infos_blob)
+        for item_blob in get_pb_fields_all(rpi_outer, 1, 2):
+            rpi_fields = decode_protobuf_fields(item_blob)
+            pid = get_pb_field(rpi_fields, 1, 0)
+            if pid is not None:
+                out['peer_ids'].add(pid)
+
+    # field 5: conn_bitmap (RouteConnBitmap)
+    #   field 1: peer_ids (repeated PeerIdVersion) - 决定 N 与每行/列对应的 peer
+    #   field 2: bitmap (bytes) - 长度 ceil(N*N/8)
+    cb_blob = get_pb_field(sri_fields, 5, 2)
+    if cb_blob:
+        cb_fields = decode_protobuf_fields(cb_blob)
+        cb_peer_ids = []
+        for piv_blob in get_pb_fields_all(cb_fields, 1, 2):
+            piv_fields = decode_protobuf_fields(piv_blob)
+            pid = get_pb_field(piv_fields, 1, 0) or 0
+            cb_peer_ids.append(pid)
+        bitmap_bytes = get_pb_field(cb_fields, 2, 2) or b''
+        n = len(cb_peer_ids)
+        if n > 0 and bitmap_bytes:
+            for i, src_pid in enumerate(cb_peer_ids):
+                neighbors = []
+                for j, dst_pid in enumerate(cb_peer_ids):
+                    bit_idx = i * n + j
+                    byte_idx = bit_idx // 8
+                    bit_off = bit_idx % 8
+                    if byte_idx < len(bitmap_bytes) and \
+                       (bitmap_bytes[byte_idx] >> bit_off) & 1:
+                        neighbors.append(dst_pid)
+                if src_pid:
+                    out['conn_map'][src_pid] = neighbors
+        # 也补充 peer_ids 到全网视图
+        for pid in cb_peer_ids:
+            out['peer_ids'].add(pid)
+
+    # field 7: conn_peer_list (RouteConnPeerList) - 与 conn_bitmap 二选一
+    cpl_blob = get_pb_field(sri_fields, 7, 2)
+    if cpl_blob:
+        cpl_fields = decode_protobuf_fields(cpl_blob)
+        for pci_blob in get_pb_fields_all(cpl_fields, 1, 2):
+            pci_fields = decode_protobuf_fields(pci_blob)
+            pid_ver_blob = get_pb_field(pci_fields, 1, 2)
+            pid = 0
+            if pid_ver_blob:
+                pid_ver_fields = decode_protobuf_fields(pid_ver_blob)
+                pid = get_pb_field(pid_ver_fields, 1, 0) or 0
+            neighbors = []
+            for fn, wt, val in pci_fields:
+                if fn == 2 and wt == 0:
+                    neighbors.append(val)
+                elif fn == 2 and wt == 2:
+                    off = 0
+                    while off < len(val):
+                        v, off = decode_varint(val, off)
+                        neighbors.append(v)
+            if pid:
+                out['conn_map'][pid] = neighbors
+
+    return out
+
+
 def build_handshake_request(my_peer_id, network_name, network_secret):
     """
     构建 HandshakeRequest protobuf 消息
@@ -270,7 +494,7 @@ def build_tcp_frame(from_peer_id, to_peer_id, packet_type, payload):
 
 def parse_tcp_frame(data):
     """
-    解析 TCP 帧，返回 (from_peer_id, to_peer_id, packet_type, payload, consumed_bytes)
+    解析 TCP 帧，返回 (from_peer_id, to_peer_id, packet_type, flags, payload, consumed_bytes)
     如果数据不完整返回 None
     """
     if len(data) < TCP_TUNNEL_HEADER_SIZE:
@@ -290,15 +514,21 @@ def parse_tcp_frame(data):
     from_peer_id = struct.unpack_from('<I', data, offset)[0]
     to_peer_id = struct.unpack_from('<I', data, offset + 4)[0]
     packet_type = data[offset + 8]
-    # flags = data[offset + 9]
+    flags = data[offset + 9]
     # forward_counter = data[offset + 10]
     # reserved = data[offset + 11]
     payload_len = struct.unpack_from('<i', data, offset + 12)[0]
 
     payload_offset = offset + PEER_MANAGER_HEADER_SIZE
-    payload = data[payload_offset:payload_offset + payload_len]
+    # 加密包：payload_len 是明文长度，实际后面还跟了 28 字节 AesGcmTail（tag+nonce）
+    actual_payload_len = payload_len
+    body_payload_room = body_len - PEER_MANAGER_HEADER_SIZE
+    if (flags & PEER_MANAGER_FLAG_ENCRYPTED) and \
+       body_payload_room >= payload_len + AES_GCM_ENCRYPTION_RESERVED:
+        actual_payload_len = payload_len + AES_GCM_ENCRYPTION_RESERVED
+    payload = data[payload_offset:payload_offset + actual_payload_len]
 
-    return (from_peer_id, to_peer_id, packet_type, payload, total_len)
+    return (from_peer_id, to_peer_id, packet_type, flags, payload, total_len)
 
 
 def parse_handshake_response(payload):
@@ -334,6 +564,62 @@ def parse_handshake_response(payload):
 # ============================================================
 # 节点检测核心逻辑
 # ============================================================
+
+def _process_rpc_frame(rpc_payload, network_secret, remote_peer_id, encrypted, stats):
+    """
+    处理一个 packet_type=8 的 RPC 帧。
+    更新 stats（dict）：
+        - best_conn_count: 目前认为最可信的连接数（初始 -1）
+        - plain_count, encrypted_count, encrypted_failed_count
+    """
+    payload_to_parse = rpc_payload
+
+    if encrypted:
+        stats['encrypted_count'] += 1
+        ok, decrypted = try_decrypt_payload(rpc_payload, network_secret)
+        if not ok:
+            stats['encrypted_failed_count'] += 1
+            return
+        payload_to_parse = decrypted
+    else:
+        stats['plain_count'] += 1
+
+    try:
+        rpc = parse_rpc_packet_body(payload_to_parse)
+    except Exception:
+        return
+
+    if rpc.get('service_name') != 'OspfRouteRpc':
+        return
+    if not rpc.get('is_request'):
+        return
+
+    try:
+        sri = parse_sync_route_info_request(rpc['body'])
+    except Exception:
+        return
+
+    target_pid = sri.get('my_peer_id') or remote_peer_id
+
+    # 优先：从 conn_map 找目标 peer 的直连数
+    conn_count = None
+    if target_pid and target_pid in sri['conn_map']:
+        conn_count = len(sri['conn_map'][target_pid])
+
+    # 回退 1：取 conn_map 中最大的条目长度
+    if conn_count is None and sri['conn_map']:
+        conn_count = max(len(v) for v in sri['conn_map'].values())
+
+    # 回退 2：用 peer_infos 总数 - 1（全网视图减自己）
+    if conn_count is None and sri['peer_ids']:
+        conn_count = max(len(sri['peer_ids']) - 1, 0)
+
+    if conn_count is None:
+        return
+
+    if conn_count > stats['best_conn_count']:
+        stats['best_conn_count'] = conn_count
+
 
 def check_node_via_easytier(server, network_name, network_secret, timeout_sec=15):
     """
@@ -413,7 +699,7 @@ def check_node_via_easytier(server, network_name, network_secret, timeout_sec=15
                 if parsed is None:
                     break
 
-                from_peer, to_peer, pkt_type, payload, consumed = parsed
+                from_peer, to_peer, pkt_type, flags, payload, consumed = parsed
                 recv_buf = recv_buf[consumed:]
 
                 if pkt_type == PACKET_TYPE_HANDSHAKE:
@@ -432,12 +718,17 @@ def check_node_via_easytier(server, network_name, network_secret, timeout_sec=15
 
         latency_ms = int((connect_time - start_time) * 1000)
 
-        # 4. 握手成功后，等待后续数据包确认连接稳定
-        # 节点会发送路由同步 RPC 请求和 Ping 包
-        # 如果收到了后续数据包，说明 digest 验证通过，连接正常
+        # 4. 握手成功后，等待路由同步 RPC，解析连接数
+        #    - 明文（flags=0）：直接解析 SyncRouteInfoRequest
+        #    - 加密（flags=ENCRYPTED）：尝试 AES-128/256-GCM 解密；失败则 connection_count=0
+        stats = {
+            'best_conn_count': -1,
+            'plain_count': 0,
+            'encrypted_count': 0,
+            'encrypted_failed_count': 0,
+        }
         connection_confirmed = False
-        rpc_count = 0  # 收到的 RPC 请求数量（路由同步）
-        post_deadline = time.time() + min(timeout_sec, 3)  # 最多等 3 秒
+        post_deadline = time.time() + min(timeout_sec, 4)
 
         while time.time() < post_deadline:
             remaining = post_deadline - time.time()
@@ -446,13 +737,14 @@ def check_node_via_easytier(server, network_name, network_secret, timeout_sec=15
             sock.settimeout(max(remaining, 0.1))
 
             try:
-                chunk = sock.recv(8192)
+                chunk = sock.recv(16384)
                 if not chunk:
-                    # 连接被关闭 = digest 验证失败
-                    return False, 0, latency_ms, '握手后连接被关闭（密码可能不正确）'
+                    if not connection_confirmed:
+                        return False, 0, latency_ms, '握手后连接被关闭（密码可能不正确）'
+                    break
                 recv_buf += chunk
             except socket.timeout:
-                if connection_confirmed:
+                if connection_confirmed and stats['best_conn_count'] >= 0:
                     break
                 continue
 
@@ -462,28 +754,34 @@ def check_node_via_easytier(server, network_name, network_secret, timeout_sec=15
                 if parsed is None:
                     break
 
-                from_peer, to_peer, pkt_type, payload, consumed = parsed
+                from_peer, to_peer, pkt_type, flags, payload, consumed = parsed
                 recv_buf = recv_buf[consumed:]
 
                 if pkt_type == PACKET_TYPE_RPC_REQ:
-                    # 收到路由同步 RPC 请求，说明连接正常
-                    rpc_count += 1
                     connection_confirmed = True
+                    encrypted = bool(flags & PEER_MANAGER_FLAG_ENCRYPTED)
+                    _process_rpc_frame(payload, network_secret, remote_peer_id,
+                                       encrypted, stats)
                 elif pkt_type == 4:  # Ping
                     connection_confirmed = True
 
-            if connection_confirmed:
-                break
-
         if not connection_confirmed:
-            # 握手成功但没有收到后续数据包
             return True, 0, latency_ms, None
 
-        # 5. 连接确认成功
-        # connection_count: 由于数据加密，无法直接从路由同步中解析
-        # 但握手 + 路由同步成功证明节点完全正常工作
-        # 返回 rpc_count 作为参考（通常 >= 1 表示节点有活跃路由）
-        return True, rpc_count, latency_ms, None
+        # 5. 汇总
+        if stats['best_conn_count'] >= 0:
+            # 明文解析或解密成功
+            return True, stats['best_conn_count'], latency_ms, None
+
+        # 全部 RPC 都是加密且解不开 → 在线但 connection_count=0
+        if stats['encrypted_count'] > 0 and stats['plain_count'] == 0:
+            err_msg = ('节点启用了加密通道，连接数无法解析（密码可能错或版本不兼容）'
+                       if _HAS_AESGCM else
+                       '节点启用了加密通道，且环境缺少 cryptography 库')
+            return True, 0, latency_ms, err_msg
+
+        # 收到 Ping 但没有 RPC 帧
+        return True, 0, latency_ms, None
 
     except socket.timeout:
         latency_ms = int((time.time() - start_time) * 1000)
